@@ -1,0 +1,9 @@
+yolov8s,YoloV8,FP32,4.558850
+yolov8s-cls,YoloV8-Cls,FP32,0.688218
+yolov8s-seg,YoloV8-Seg,FP32,6.044745
+yolov8s-pose,YoloV8-Pose,FP32,4.942450
+yolov8s-cls,YoloV8-Cls,FP32,0.681215
+yolov8s,YoloV8,FP32,4.743532
+yolov8s-cls,YoloV8-Cls,FP32,0.688739
+yolov8s-seg,YoloV8-Seg,FP32,6.084712
+yolov8s-pose,YoloV8-Pose,FP32,5.062129
