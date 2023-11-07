@@ -1,0 +1,59 @@
+
+# temp tensor and data
+*.tensor
+*.data
+
+
+# Prerequisites
+*.d
+
+# Compiled Object files
+*.slo
+*.lo
+*.o
+*.obj
+
+# Precompiled Headers
+*.gch
+*.pch
+
+# Compiled Dynamic libraries
+*.so
+*.dylib
+*.dll
+
+# Compiled Static libraries
+*.lai
+*.la
+*.a
+*.lib
+
+# Executables
+*.exe
+*.out
+*.app
+
+/objs
+
+*.trtmodel
+*.onnx
+/workspace/pro
+/build
+
+/.vs
+*.pyd
+*.zip
+*.pdb
+*.ilk
+*.lib
+*.exp
+
+/workspace/*.mp4
+/workspace/single_inference
+/workspace/perf.result.log
+/simple_yolo/workspace/pro
+/simple_yolo/objs
+/workspace/*.json
+/workspace/*.png
+/workspace/*_result
+/src/application/logo.cpp

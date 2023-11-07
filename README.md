@@ -1,7 +1,7 @@
 
 ## 简介
 
-该仓库基于 [shouxieai/tensorRT_Pro](https://github.com/shouxieai/tensorRT_Pro)，进行了调整以支持 YOLOv8 的各项任务。
+该仓库基于 [shouxieai/tensorRT_Pro](https://github.com/shouxieai/tensorRT_Pro)，并进行了调整以支持 YOLOv8 的各项任务。
 
 * 目前已支持 YOLOv8、YOLOv8-Cls、YOLOv8-Seg、YOLOv8-Pose 高性能推理🚀🚀🚀
 * 基于 tensorRT8.x，C++ 高级接口，C++ 部署，服务器/嵌入式使用
@@ -9,10 +9,10 @@
 <div align=center><img src="./assets/output.jpg" width="50%" height="50%"></div>
 
 ## CSDN文章同步讲解
-- 🔥 [YOLOv8推理详解及部署实现]()
-- 🔥 [YOLOv8-Cls推理详解及部署实现]()
-- 🔥 [YOLOv8-Seg推理详解及部署实现]()
-- 🔥 [YOLOv8-Pose推理详解及部署实现]()
+- 🔥 [YOLOv8推理详解及部署实现](https://blog.csdn.net/qq_40672115/article/details/134276907)
+- 🔥 [YOLOv8-Cls推理详解及部署实现](https://blog.csdn.net/qq_40672115/article/details/134277392)
+- 🔥 [YOLOv8-Seg推理详解及部署实现](https://blog.csdn.net/qq_40672115/article/details/134277752)
+- 🔥 [YOLOv8-Pose推理详解及部署实现](https://blog.csdn.net/qq_40672115/article/details/134278117)
 
 
 ## 环境配置
