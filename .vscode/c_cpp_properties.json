@@ -1,0 +1,34 @@
+{
+    "configurations": [
+        {
+            "name": "Linux",
+            "includePath": [
+                "${workspaceFolder}/src/**",
+                "/home/jarvis/protobuf/include/**",
+                "/usr/local/include/opencv4/**",
+                "/usr/local/cuda-11.6/include/**",
+                "/opt/TensorRT-8.4.1.5/include/**",
+                "/usr/local/cuda-11.6/include/**"
+            ],
+            "defines": ["__CUDACC__", "HAS_PYTHON"],
+            "compilerPath": "/usr/bin/gcc", 
+            "cStandard": "gnu11",
+            "cppStandard": "gnu++11",
+            "intelliSenseMode": "linux-gcc-x64",
+            "configurationProvider": "ms-vscode.makefile-tools",
+            "browse": {
+                "path": [
+                    "${workspaceFolder}/src/**",
+                    "/home/jarvis/protobuf/include/**",
+                    "/usr/local/include/opencv4/**",
+                    "/usr/local/cuda-11.6/include/**",
+                    "/opt/TensorRT-8.4.1.5/include/**",
+                    "/usr/local/cuda-11.6/include/**"
+                ],
+                "limitSymbolsToIncludedHeaders": false,
+                "databaseFilename": ""
+            }
+        }
+    ],
+    "version": 4
+}
