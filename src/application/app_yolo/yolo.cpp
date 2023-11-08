@@ -19,6 +19,7 @@ namespace Yolo{
         case Type::V5: return "YoloV5";
         case Type::V3: return "YoloV3";
         case Type::V7: return "YoloV7";
+        case Type::V6: return "YoloV6";
         case Type::V8: return "YoloV8";
         case Type::X: return "YoloX";
         default: return "Unknow";
@@ -168,7 +169,7 @@ namespace Yolo{
             NMSMethod nms_method, int max_objects,
             bool use_multi_preprocess_stream
         ){
-            if(type == Type::V5 || type == Type::V3 || type == Type::V7 || type == Type::V8){
+            if(type == Type::V5 || type == Type::V3 || type == Type::V7 || type == Type::V8 || type == Type::V6){
                 normalize_ = CUDAKernel::Norm::alpha_beta(1 / 255.0f, 0.0f, CUDAKernel::ChannelType::Invert);
             }else if(type == Type::X){
                 //float mean[] = {0.485, 0.456, 0.406};
@@ -405,7 +406,7 @@ namespace Yolo{
     void image_to_tensor(const cv::Mat& image, shared_ptr<TRT::Tensor>& tensor, Type type, int ibatch){
 
         CUDAKernel::Norm normalize;
-        if(type == Type::V5 || type == Type::V3 || type == Type::V7 || type == Type::V8){
+        if(type == Type::V5 || type == Type::V3 || type == Type::V7 || type == Type::V8 || type == Type::V6){
             normalize = CUDAKernel::Norm::alpha_beta(1 / 255.0f, 0.0f, CUDAKernel::ChannelType::Invert);
         }else if(type == Type::X){
             //float mean[] = {0.485, 0.456, 0.406};
