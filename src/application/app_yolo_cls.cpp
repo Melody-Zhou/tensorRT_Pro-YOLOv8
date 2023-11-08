@@ -25,13 +25,10 @@ void test_crop_resize(){
 
     cudaStream_t stream;
     cudaStreamCreate(&stream);
-    shared_ptr<TRT::Tensor> tensor = nullptr;
-    if(tensor == nullptr){
-        tensor = make_shared<TRT::Tensor>();
-        tensor->set_workspace(make_shared<TRT::MixMemory>());
-        tensor->set_stream(stream, false);
-    }
 
+    auto tensor = make_shared<TRT::Tensor>();
+    tensor->set_workspace(make_shared<TRT::MixMemory>());
+    tensor->set_stream(stream, false);
     cv::Mat image = cv::imread("inference/car.jpg");
     
     tensor->resize(1, 3, 224, 224);
