@@ -100,6 +100,93 @@ make -j64
 ## 各项任务支持
 
 <details>
+<summary>YOLOv3支持</summary>
+
+1. 下载 YOLOv3
+
+```shell
+git clone https://github.com/ultralytics/yolov3.git
+```
+
+2. 修改代码, 保证动态 batch
+
+```python
+# ========== export.py ==========
+
+# yolov3/export.py第160行
+# output_names = ['output0', 'output1'] if isinstance(model, SegmentationModel) else ['output0']
+# if dynamic:
+#     dynamic = {'images': {0: 'batch', 2: 'height', 3: 'width'}}  # shape(1,3,640,640)
+#     if isinstance(model, SegmentationModel):
+#         dynamic['output0'] = {0: 'batch', 1: 'anchors'}  # shape(1,25200,85)
+#         dynamic['output1'] = {0: 'batch', 2: 'mask_height', 3: 'mask_width'}  # shape(1,32,160,160)
+#         elif isinstance(model, DetectionModel):
+#             dynamic['output0'] = {0: 'batch', 1: 'anchors'}  # shape(1,25200,85)
+# 修改为：
+
+output_names = ['output0', 'output1'] if isinstance(model, SegmentationModel) else ['output']            
+if dynamic:
+    dynamic = {'images': {0: 'batch'}}  # shape(1,3,640,640)
+    if isinstance(model, SegmentationModel):
+        dynamic['output0'] = {0: 'batch', 1: 'anchors'}  # shape(1,25200,85)
+        dynamic['output1'] = {0: 'batch', 2: 'mask_height', 3: 'mask_width'}  # shape(1,32,160,160)
+    elif isinstance(model, DetectionModel):
+        dynamic['output'] = {0: 'batch'}  # shape(1,25200,85)
+```
+
+3. 导出 onnx 模型
+
+```shell
+cd yolov3
+python export.py --weights=yolov3.pt --dynamic --simplify --include=onnx --opset=11
+```
+
+4. 复制模型并执行
+
+```shell
+cp yolov3/yolov3.onnx tensorRT_Pro-YOLOv8/workspace
+cd tensorRT_Pro-YOLOv8
+
+# 修改代码在 src/application/app_yolo.cpp: app_yolo 函数中, 使用 V3 的方式即可运行
+# test(Yolo::Type::V3, TRT::Mode::FP32, "yolov3");
+
+make yolo -j64
+```
+
+</details>
+
+<details>
+<summary>YOLOX支持</summary>
+
+1. 下载 YOLOX
+
+```shell
+git clone https://github.com/Megvii-BaseDetection/YOLOX.git
+```
+
+2. 导出 onnx 模型
+
+```shell
+cd YOLOX
+export PYTHONPATH=$PYTHONPATH:.
+python tools/export_onnx.py -c yolox_s.pth -f exps/default/yolox_s.py --output-name=yolox_s.onnx --dynamic --decode_in_inference
+```
+
+3. 复制模型并执行
+
+```shell
+cp YOLOX/yolox_s.onnx tensorRT_Pro-YOLOv8/workspace
+cd tensorRT_Pro-YOLOv8
+
+# 修改代码在 src/application/app_yolo.cpp: app_yolo 函数中, 使用 X 的方式即可运行
+# test(Yolo::Type::X, TRT::Mode::FP32, "yolox_s");
+
+make yolo -j64
+```
+
+</details>
+
+<details>
 <summary>YOLOv5支持</summary>
 
 1. 下载 YOLOv5
@@ -111,19 +198,6 @@ git clone https://github.com/ultralytics/yolov5.git
 2. 修改代码, 保证动态 batch
 
 ```python
-# ========== yolo.py ==========
-
-# yolov5/models/yolo.py第60行，forward函数
-# bs, _, ny, nx = x[i].shape  # x(bs,255,20,20) to x(bs,3,20,20,85)
-# x[i] = x[i].view(bs, self.na, self.no, ny, nx).permute(0, 1, 3, 4, 2).contiguous()
-# 修改为：
-
-bs, _, ny, nx = x[i].shape  # x(bs,255,20,20) to x(bs,3,20,20,85)
-bs = -1
-ny = int(ny)
-nx = int(nx)
-x[i] = x[i].view(bs, self.na, self.no, ny, nx).permute(0, 1, 3, 4, 2).contiguous()
-
 # ========== export.py ==========
 
 # yolov5/export.py第160行
@@ -159,6 +233,10 @@ python export.py --weights=yolov5s.pt --dynamic --simplify --include=onnx --opse
 ```shell
 cp yolov5/yolov5s.onnx tensorRT_Pro-YOLOv8/workspace
 cd tensorRT_Pro-YOLOv8
+
+# 修改代码在 src/application/app_yolo.cpp: app_yolo 函数中, 使用 V5 的方式即可运行
+# test(Yolo::Type::V5, TRT::Mode::FP32, "yolov5s");
+
 make yolo -j64
 ```
 
@@ -220,6 +298,10 @@ python deploy/ONNX/export_onnx.py --weights yolov6s.pt --img 640 --dynamic-batch
 ```shell
 cp YOLOv6/yolov6s.onnx tensorRT_Pro-YOLOv8/workspace
 cd tensorRT_Pro-YOLOv8
+
+# 修改代码在 src/application/app_yolo.cpp: app_yolo 函数中, 使用 V6 的方式即可运行
+# test(Yolo::Type::V6, TRT::Mode::FP32, "yolov6s");
+
 make yolo -j64
 ```
 </details>
@@ -245,6 +327,10 @@ python export.py --dynamic-batch --grid --simplify --weights=yolov7.pt
 ```shell
 cp yolov7/yolov7.onnx tensorRT_Pro-YOLOv8/workspace
 cd tensorRT_Pro-YOLOv8
+
+# 修改代码在 src/application/app_yolo.cpp: app_yolo 函数中, 使用 V7 的方式即可运行
+# test(Yolo::Type::V7, TRT::Mode::FP32, "yolov7");
+
 make yolo -j64
 ```
 

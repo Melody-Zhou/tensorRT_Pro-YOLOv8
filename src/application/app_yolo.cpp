@@ -274,11 +274,13 @@ static void test_single_image(){
 
 int app_yolo(){
  
-    // test(Yolo::Type::V8, TRT::Mode::FP32, "yolov8s");
+    test(Yolo::Type::V8, TRT::Mode::FP32, "yolov8s");
     // test_single_image();
     // test_video();
+    // test(Yolo::Type::V3, TRT::Mode::FP32, "yolov3");
+    // test(Yolo::Type::X, TRT::Mode::FP32, "yolox_s");
     // test(Yolo::Type::V5, TRT::Mode::FP32, "yolov5s");
     // test(Yolo::Type::V6, TRT::Mode::FP32, "yolov6s");
-    test(Yolo::Type::V7, TRT::Mode::FP32, "yolov7");
+    // test(Yolo::Type::V7, TRT::Mode::FP32, "yolov7");
     return 0;
 }
