@@ -2,7 +2,9 @@ cc        := g++
 nvcc      = ${lean_cuda}/bin/nvcc
 
 lean_protobuf  := /home/jarvis/protobuf
-lean_tensor_rt := /opt/TensorRT-8.4.1.5
+# lean_tensor_rt := /opt/TensorRT-8.4.1.5
+# RT-DETR 必须指定高版本的 tensorRT
+lean_tensor_rt := /home/jarvis/lean/TensorRT-8.6.1.6
 lean_cudnn     := /usr/local/cuda-11.6
 lean_opencv    := /usr/local
 lean_cuda      := /usr/local/cuda-11.6
@@ -104,6 +106,9 @@ yolo_cls : workspace/pro
 
 yolo_seg : workspace/pro
 	@cd workspace && ./pro yolo_seg
+
+rtdetr : workspace/pro
+	@cd workspace && ./pro rtdetr
 
 test_yolo_map : workspace/pro
 	@cd workspace && ./pro test_yolo_map

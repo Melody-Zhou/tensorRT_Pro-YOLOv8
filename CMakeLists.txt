@@ -14,7 +14,9 @@ set(OpenCV_DIR   "/usr/local/include/opencv4")
 
 set(CUDA_TOOLKIT_ROOT_DIR     "/usr/local/cuda-11.6")
 set(CUDNN_DIR    "/usr/local/cudnn8.4.0.27-cuda11.6")
-set(TENSORRT_DIR "/opt/TensorRT-8.4.1.5")
+# set(TENSORRT_DIR "/opt/TensorRT-8.4.1.5")
+# RT-DETR 必须指定高版本的 tensorRT
+set(TENSORRT_DIR "/home/jarvis/lean/TensorRT-8.6.1.6")
 
 # 因为protobuf，需要用特定版本，所以这里指定路径
 set(PROTOBUF_DIR "/home/jarvis/protobuf")
@@ -91,6 +93,13 @@ add_custom_target(
     DEPENDS pro
     WORKING_DIRECTORY ${PROJECT_SOURCE_DIR}/workspace
     COMMAND ./pro yolo_seg
+)
+
+add_custom_target(
+    rtdetr
+    DEPENDS pro
+    WORKING_DIRECTORY ${PROJECT_SOURCE_DIR}/workspace
+    COMMAND ./pro rtdetr
 )
 
 add_custom_target(

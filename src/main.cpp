@@ -8,6 +8,7 @@ int app_yolo();
 int app_yolo_cls();
 int app_yolo_seg();
 int app_yolo_pose();
+int app_rtdetr();
 int test_yolo_map();
 
 int main(int argc, char** argv){
@@ -25,6 +26,8 @@ int main(int argc, char** argv){
         app_yolo_seg();
     }else if(strcmp(method, "yolo_pose") == 0){
         app_yolo_pose();
+    }else if(strcmp(method, "rtdetr") == 0){
+        app_rtdetr();
     }else if(strcmp(method, "test_yolo_map") == 0){
         test_yolo_map();
     }else{
