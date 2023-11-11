@@ -1,7 +1,7 @@
 # Onnx parser for 7.x/8.x
 - Origin Code 7.x: https://github.com/onnx/onnx-tensorrt/releases/tag/release%2F7.2.1
 - Origin Code 8.x: https://github.com/onnx/onnx-tensorrt/releases/tag/release%2F8.0
-- Origin Code 8.6: 
+- Origin Code 8.6: https://github.com/onnx/onnx-tensorrt/releases/tag/release%2F8.6-GA
 
 # TensorRT 7.x support
 1. Replace onnx_parser_for_7.x/onnx_parser to src/tensorRT/onnx_parser
