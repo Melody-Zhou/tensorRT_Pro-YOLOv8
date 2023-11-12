@@ -13,6 +13,7 @@
 - 🔥 [YOLOv8-Cls推理详解及部署实现](https://blog.csdn.net/qq_40672115/article/details/134277392)
 - 🔥 [YOLOv8-Seg推理详解及部署实现](https://blog.csdn.net/qq_40672115/article/details/134277752)
 - 🔥 [YOLOv8-Pose推理详解及部署实现](https://blog.csdn.net/qq_40672115/article/details/134278117)
+- 🔥 [RT-DETR推理详解及部署实现](https://blog.csdn.net/qq_40672115/article/details/134356250)
 
 
 ## 环境配置
@@ -609,6 +610,82 @@ cd tensorRT_Pro-YOLOv8
 make yolo_pose -j64
 ```
 </details>
+
+<details>
+<summary>RT-DETR支持</summary>
+
+1. 前置条件
+
+- **tensorRT >= 8.6**
+
+2. 下载 YOLOv8
+
+```shell
+git clone https://github.com/ultralytics/ultralytics.git
+```
+
+3. 修改代码, 保证动态 batch
+
+```python
+# ========== exporter.py ==========
+
+# ultralytics/engine/exporter.py第323行
+# output_names = ['output0', 'output1'] if isinstance(self.model, SegmentationModel) else ['output0']
+# dynamic = self.args.dynamic
+# if dynamic:
+#     dynamic = {'images': {0: 'batch', 2: 'height', 3: 'width'}}  # shape(1,3,640,640)
+#     if isinstance(self.model, SegmentationModel):
+#         dynamic['output0'] = {0: 'batch', 2: 'anchors'}  # shape(1, 116, 8400)
+#         dynamic['output1'] = {0: 'batch', 2: 'mask_height', 3: 'mask_width'}  # shape(1,32,160,160)
+#     elif isinstance(self.model, DetectionModel):
+#         dynamic['output0'] = {0: 'batch', 2: 'anchors'}  # shape(1, 84, 8400)
+# 修改为：
+
+output_names = ['output0', 'output1'] if isinstance(self.model, SegmentationModel) else ['output']
+dynamic = self.args.dynamic
+if dynamic:
+    dynamic = {'images': {0: 'batch'}}  # shape(1,3,640,640)
+    if isinstance(self.model, SegmentationModel):
+        dynamic['output0'] = {0: 'batch', 2: 'anchors'}  # shape(1, 116, 8400)
+        dynamic['output1'] = {0: 'batch', 2: 'mask_height', 3: 'mask_width'}  # shape(1,32,160,160)
+    elif isinstance(self.model, DetectionModel):
+        dynamic['output'] = {0: 'batch'}  # shape(1, 84, 8400)
+```
+
+4. 导出 onnx 模型，在 ultralytics-main 新建导出文件 `export.py` 内容如下（可能会由于 torch 版本问题导出失败, 具体可参考 [#6144](https://github.com/ultralytics/ultralytics/issues/6144)）
+
+```python
+from ultralytics import RTDETR
+
+model = RTDETR("rtdetr-l.pt")
+
+success = model.export(format="onnx", dynamic=True, simplify=True)
+```
+
+```shell
+cd ultralytics-main
+python export.py
+```
+
+5. engine 生成
+
+- **方案一**：替换 tensorRT_Pro-YOLOv8 中的 onnxparser 解析器，具体可参考文章：[RT-DETR推理详解及部署实现](https://blog.csdn.net/qq_40672115/article/details/134356250)
+- **方案二**：利用 **trtexec** 工具生成 engine
+
+```shell
+cp ultralytics/yolov8s.onnx tensorRT_Pro-YOLOv8/workspace
+cd tensorRT_Pro-YOLOv8/workspace
+bash build.sh
+```
+
+6. 执行
+
+```shell
+make rtdetr -j64
+```
+
+</details>
+
 
 ## 接口介绍
 
