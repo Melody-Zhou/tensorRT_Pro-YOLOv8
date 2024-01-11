@@ -31,17 +31,18 @@ def preprocess_warpAffine(image, dst_width=640, dst_height=640):
     return img_pre, IM
 
 def iou(box1, box2):
-
     def area_box(box):
         return (box[2] - box[0]) * (box[3] - box[1])
-    
-    left, top = max(box1[:2], box2[:2])
-    right, bottom = min(box1[2:4], box2[2:4])
-    union = max((right-left), 0) * max((bottom-top), 0)
-    cross = area_box(box1) + area_box(box2) - union
+
+    left   = max(box1[0], box2[0])
+    top    = max(box1[1], box2[1])
+    right  = min(box1[2], box2[2])
+    bottom = min(box1[3], box2[3])
+    cross  = max((right-left), 0) * max((bottom-top), 0)
+    union  = area_box(box1) + area_box(box2) - cross
     if cross == 0 or union == 0:
         return 0
-    return union / cross
+    return cross / union
 
 def NMS(boxes, iou_thres):
 
