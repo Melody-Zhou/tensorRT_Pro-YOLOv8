@@ -96,6 +96,20 @@ add_custom_target(
 )
 
 add_custom_target(
+    yolo_obb
+    DEPENDS pro
+    WORKING_DIRECTORY ${PROJECT_SOURCE_DIR}/workspace
+    COMMAND ./pro yolo_obb
+)
+
+add_custom_target(
+    bytetrack
+    DEPENDS pro
+    WORKING_DIRECTORY ${PROJECT_SOURCE_DIR}/workspace
+    COMMAND ./pro bytetrack
+)
+
+add_custom_target(
     rtdetr
     DEPENDS pro
     WORKING_DIRECTORY ${PROJECT_SOURCE_DIR}/workspace

@@ -107,6 +107,12 @@ yolo_cls : workspace/pro
 yolo_seg : workspace/pro
 	@cd workspace && ./pro yolo_seg
 
+yolo_obb : workspace/pro
+	@cd workspace && ./pro yolo_obb
+
+bytetrack : workspace/pro
+	@cd workspace && ./pro bytetrack
+
 rtdetr : workspace/pro
 	@cd workspace && ./pro rtdetr
 
