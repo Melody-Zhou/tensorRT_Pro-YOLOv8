@@ -3,7 +3,7 @@
 
 该仓库基于 [shouxieai/tensorRT_Pro](https://github.com/shouxieai/tensorRT_Pro)，并进行了调整以支持 YOLOv8 的各项任务。
 
-* 目前已支持 YOLOv8、YOLOv8-Cls、YOLOv8-Seg、YOLOv8-Pose 高性能推理！！！🚀🚀🚀
+* 目前已支持 YOLOv8、YOLOv8-Cls、YOLOv8-Seg、YOLOv8-OBB、YOLOv8-Pose、RT-DETR、ByteTrack 高性能推理！！！🚀🚀🚀
 * 基于 tensorRT8.x，C++ 高级接口，C++ 部署，服务器/嵌入式使用
 
 <div align=center><img src="./assets/output.jpg" width="50%" height="50%"></div>
@@ -12,9 +12,22 @@
 - 🔥 [YOLOv8推理详解及部署实现](https://blog.csdn.net/qq_40672115/article/details/134276907)
 - 🔥 [YOLOv8-Cls推理详解及部署实现](https://blog.csdn.net/qq_40672115/article/details/134277392)
 - 🔥 [YOLOv8-Seg推理详解及部署实现](https://blog.csdn.net/qq_40672115/article/details/134277752)
+- 🔥 [YOLOv8-OBB推理详解及部署实现](https://blog.csdn.net/qq_40672115/article/details/135713830)
 - 🔥 [YOLOv8-Pose推理详解及部署实现](https://blog.csdn.net/qq_40672115/article/details/134278117)
 - 🔥 [RT-DETR推理详解及部署实现](https://blog.csdn.net/qq_40672115/article/details/134356250)
 
+
+## Top News
+
+- **2024/1/21**
+  - YOLOv8-OBB 支持
+  - ByteTrack 支持，实现基本跟踪功能
+- **2024/1/10**
+  - 修复 IoU 计算 bug
+- **2023/11/12**
+  - RT-DETR 支持
+- **2023/11/07**
+  - 首次提交代码，YOLOv8 分类、检测、分割、姿态点估计任务支持
 
 ## 环境配置
 
@@ -541,6 +554,79 @@ make yolo_seg -j64
 </details>
 
 <details>
+<summary>YOLOv8-OBB支持</summary>
+
+1. 下载 YOLOv8
+
+```shell
+glit clone https://github.com/ultralytics/ultralytics.git
+cd ultralytics
+git checkout tags/v8.1.0 -b v8.1.0
+```
+
+2. 修改代码, 保证动态 batch
+
+```python
+# ========== head.py ==========
+
+# ultralytics/nn/modules/head.py第141行，forward函数
+# return torch.cat([x, angle], 1) if self.export else (torch.cat([x[0], angle], 1), (x[1], angle))
+# 修改为：
+
+return torch.cat([x, angle], 1).permute(0, 2, 1) if self.export else (torch.cat([x[0], angle], 1), (x[1], angle))
+
+# ========== exporter.py ==========
+
+# ultralytics/engine/exporter.py第353行
+# output_names = ['output0', 'output1'] if isinstance(self.model, SegmentationModel) else ['output0']
+# dynamic = self.args.dynamic
+# if dynamic:
+#     dynamic = {'images': {0: 'batch', 2: 'height', 3: 'width'}}  # shape(1,3,640,640)
+#     if isinstance(self.model, SegmentationModel):
+#         dynamic['output0'] = {0: 'batch', 2: 'anchors'}  # shape(1, 116, 8400)
+#         dynamic['output1'] = {0: 'batch', 2: 'mask_height', 3: 'mask_width'}  # shape(1,32,160,160)
+#     elif isinstance(self.model, DetectionModel):
+#         dynamic['output0'] = {0: 'batch', 2: 'anchors'}  # shape(1, 84, 8400)
+# 修改为：
+
+output_names = ['output0', 'output1'] if isinstance(self.model, SegmentationModel) else ['output']
+dynamic = self.args.dynamic
+if dynamic:
+    dynamic = {'images': {0: 'batch'}}  # shape(1,3,640,640)
+    if isinstance(self.model, SegmentationModel):
+        dynamic['output0'] = {0: 'batch', 2: 'anchors'}  # shape(1, 116, 8400)
+        dynamic['output1'] = {0: 'batch', 2: 'mask_height', 3: 'mask_width'}  # shape(1,32,160,160)
+    elif isinstance(self.model, DetectionModel):
+        dynamic['output'] = {0: 'batch'}  # shape(1, 84, 8400)
+```
+
+3. 导出 onnx 模型, 在 ultralytics-main 新建导出文件 `export.py` 内容如下：
+
+```python
+# ========== export.py ==========
+from ultralytics import YOLO
+
+model = YOLO("yolov8s-obb.pt")
+
+success = model.export(format="onnx", dynamic=True, simplify=True)
+```
+
+```shell
+cd ultralytics-main
+python export.py
+```
+
+4. 复制模型并执行
+
+```shell
+cp ultralytics/yolov8s-obb.onnx tensorRT_Pro-YOLOv8/workspace
+cd tensorRT_Pro-YOLOv8
+make yolo_obb -j64
+```
+
+</details>
+
+<details>
 <summary>YOLOv8-Pose支持</summary>
 
 1. 下载 YOLOv8
@@ -686,6 +772,24 @@ make rtdetr -j64
 
 </details>
 
+
+<details>
+<summary>ByteTrack支持</summary>
+
+1. 说明
+
+代码 copy 自：[https://github.com/CYYAI/AiInfer/tree/main/utils/tracker/ByteTracker](https://github.com/CYYAI/AiInfer/tree/main/utils/tracker/ByteTracker)
+
+以 YOLOv8 作为检测器实现基本跟踪功能（其它检测器也行）
+
+2. demo 演示
+
+```shell
+cd tensorRT_Pro-YOLOv8
+make bytetrack -j64
+```
+
+</details>
 
 ## 接口介绍
 
