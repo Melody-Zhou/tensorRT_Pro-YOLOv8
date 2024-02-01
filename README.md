@@ -18,7 +18,9 @@
 
 
 ## Top News
-
+- **2024/2/1**
+  - 新增 MinMaxCalibrator 校准器，可以通过 `TRT::Calibrator::MinMax` 指定
+  - 新增 mAP 测试使用的一些脚本文件，mAP 计算代码 copy 自 [yolov6/core/evaler.py#L231](https://github.com/meituan/YOLOv6/blob/main/yolov6/core/evaler.py#L231)
 - **2024/1/21**
   - YOLOv8-OBB 支持
   - ByteTrack 支持，实现基本跟踪功能

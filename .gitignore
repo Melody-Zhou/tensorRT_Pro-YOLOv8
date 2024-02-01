@@ -57,3 +57,5 @@
 /workspace/*.png
 /workspace/*_result
 /src/application/logo.cpp
+/workspace/calib_data
+/workspace/*.cache
