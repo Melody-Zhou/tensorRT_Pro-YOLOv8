@@ -94,6 +94,11 @@ namespace TRT {
 		INT8
 	};
 
+	enum class Calibrator : int {
+		Entropy,
+		MinMax
+	};
+
 	const char* mode_string(Mode type);
 
 	void set_layer_hook_reshape(const LayerHookFuncReshape& func);
@@ -115,6 +120,7 @@ namespace TRT {
 		Int8Process int8process = nullptr,
 		const std::string& int8ImageDirectory = "",
 		const std::string& int8EntropyCalibratorFile = "",
+		Calibrator calibrator = Calibrator::Entropy,
 		const size_t maxWorkspaceSize = 1ul << 30                // 1ul << 30 = 1GB
 	);
 };

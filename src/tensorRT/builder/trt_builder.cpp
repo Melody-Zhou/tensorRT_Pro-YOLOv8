@@ -408,6 +408,95 @@ namespace TRT {
 		CUStream stream_ = nullptr;
 	};
 
+	/////////////////////////////////////////////////////////////////////////////////////////
+	class Int8MinMaxCalibrator : public IInt8MinMaxCalibrator
+	{
+	public:
+		Int8MinMaxCalibrator(const vector<string>& imagefiles, nvinfer1::Dims dims, const Int8Process& preprocess) {
+
+			Assert(preprocess != nullptr);
+			this->dims_ = dims;
+			this->allimgs_ = imagefiles;
+			this->preprocess_ = preprocess;
+			this->fromCalibratorData_ = false;
+			files_.resize(dims.d[0]);
+			checkCudaRuntime(cudaStreamCreate(&stream_));
+		}
+
+		Int8MinMaxCalibrator(const vector<uint8_t>& minmaxCalibratorData, nvinfer1::Dims dims, const Int8Process& preprocess) {
+			Assert(preprocess != nullptr);
+
+			this->dims_ = dims;
+			this->minmaxCalibratorData_ = minmaxCalibratorData;
+			this->preprocess_ = preprocess;
+			this->fromCalibratorData_ = true;
+			files_.resize(dims.d[0]);
+			checkCudaRuntime(cudaStreamCreate(&stream_));
+		}
+
+		virtual ~Int8MinMaxCalibrator(){
+			checkCudaRuntime(cudaStreamDestroy(stream_));
+		}
+
+		int getBatchSize() const noexcept {
+			return dims_.d[0];
+		}
+
+		bool next() {
+			int batch_size = dims_.d[0];
+			if (cursor_ + batch_size > allimgs_.size())
+				return false;
+
+			for(int i = 0; i < batch_size; ++i)
+				files_[i] = allimgs_[cursor_++];
+
+			if (!tensor_){
+				tensor_.reset(new Tensor(dims_.nbDims, dims_.d));
+				tensor_->set_stream(stream_);
+				tensor_->set_workspace(make_shared<TRT::MixMemory>());
+			}
+
+			preprocess_(cursor_, allimgs_.size(), files_, tensor_);
+			return true;
+		}
+
+		bool getBatch(void* bindings[], const char* names[], int nbBindings) noexcept {
+			if (!next()) return false;
+			bindings[0] = tensor_->gpu();
+			return true;
+		}
+
+		const vector<uint8_t>& getEntropyCalibratorData() {
+			return minmaxCalibratorData_;
+		}
+
+		const void* readCalibrationCache(size_t& length) noexcept {
+			if (fromCalibratorData_) {
+				length = this->minmaxCalibratorData_.size();
+				return this->minmaxCalibratorData_.data();
+			}
+
+			length = 0;
+			return nullptr;
+		}
+
+		virtual void writeCalibrationCache(const void* cache, size_t length) noexcept {
+			minmaxCalibratorData_.assign((uint8_t*)cache, (uint8_t*)cache + length);
+		}
+
+	private:
+		Int8Process preprocess_;
+		vector<string> allimgs_;
+		size_t batchCudaSize_ = 0;
+		int cursor_ = 0;
+		nvinfer1::Dims dims_;
+		vector<string> files_;
+		shared_ptr<Tensor> tensor_;
+		vector<uint8_t> minmaxCalibratorData_;
+		bool fromCalibratorData_ = false;
+		CUStream stream_ = nullptr;
+	};
+
 	bool compile(
 		Mode mode,
 		unsigned int maxBatchSize,
@@ -416,7 +505,8 @@ namespace TRT {
 		std::vector<InputDims> inputsDimsSetup,
 		Int8Process int8process,
 		const std::string& int8ImageDirectory,
-		const std::string& int8EntropyCalibratorFile,
+		const std::string& int8CalibratorFile,
+		Calibrator calibrator,
 		const size_t maxWorkspaceSize) {
 
 		if (mode == Mode::INT8 && int8process == nullptr) {
@@ -424,22 +514,22 @@ namespace TRT {
 			return false;
 		}
 
-		bool hasEntropyCalibrator = false;
-		vector<uint8_t> entropyCalibratorData;
-		vector<string> entropyCalibratorFiles;
+		bool hasCalibrator = false;
+		vector<uint8_t> CalibratorData;
+		vector<string> CalibratorFiles;
 		if (mode == Mode::INT8) {
-			if (!int8EntropyCalibratorFile.empty()) {
-				if (iLogger::exists(int8EntropyCalibratorFile)) {
-					entropyCalibratorData = iLogger::load_file(int8EntropyCalibratorFile);
-					if (entropyCalibratorData.empty()) {
-						INFOE("entropyCalibratorFile is set as: %s, but we read is empty.", int8EntropyCalibratorFile.c_str());
+			if (!int8CalibratorFile.empty()) {
+				if (iLogger::exists(int8CalibratorFile)) {
+					CalibratorData = iLogger::load_file(int8CalibratorFile);
+					if (CalibratorData.empty()) {
+						INFOE("entropyCalibratorFile is set as: %s, but we read is empty.", int8CalibratorFile.c_str());
 						return false;
 					}
-					hasEntropyCalibrator = true;
+					hasCalibrator = true;
 				}
 			}
 			
-			if (hasEntropyCalibrator) {
+			if (hasCalibrator) {
 				if (!int8ImageDirectory.empty()) {
 					INFOW("imageDirectory is ignore, when entropyCalibratorFile is set");
 				}
@@ -450,23 +540,23 @@ namespace TRT {
 					return false;
 				}
 
-				entropyCalibratorFiles = iLogger::find_files(int8ImageDirectory, "*.jpg;*.png;*.bmp;*.jpeg;*.tiff");
-				if (entropyCalibratorFiles.empty()) {
+				CalibratorFiles = iLogger::find_files(int8ImageDirectory, "*.jpg;*.png;*.bmp;*.jpeg;*.tiff");
+				if (CalibratorFiles.empty()) {
 					INFOE("Can not find any images(jpg/png/bmp/jpeg/tiff) from directory: %s", int8ImageDirectory.c_str());
 					return false;
 				}
 
-				if(entropyCalibratorFiles.size() < maxBatchSize){
-					INFOW("Too few images provided, %d[provided] < %d[max batch size], image copy will be performed", entropyCalibratorFiles.size(), maxBatchSize);
+				if(CalibratorFiles.size() < maxBatchSize){
+					INFOW("Too few images provided, %d[provided] < %d[max batch size], image copy will be performed", CalibratorFiles.size(), maxBatchSize);
 					
-					int old_size = entropyCalibratorFiles.size();
+					int old_size = CalibratorFiles.size();
                     for(int i = old_size; i < maxBatchSize; ++i)
-                        entropyCalibratorFiles.push_back(entropyCalibratorFiles[i % old_size]);
+                        CalibratorFiles.push_back(CalibratorFiles[i % old_size]);
 				}
 			}
 		}
 		else {
-			if (hasEntropyCalibrator) {
+			if (hasCalibrator) {
 				INFOW("int8EntropyCalibratorFile is ignore, when Mode is '%s'", mode_string(mode));
 			}
 		}
@@ -535,24 +625,46 @@ namespace TRT {
 		auto inputTensor = network->getInput(0);
 		auto inputDims = inputTensor->getDimensions();
 
-		shared_ptr<Int8EntropyCalibrator> int8Calibrator;
-		if (mode == Mode::INT8) {
+		shared_ptr<Int8EntropyCalibrator> int8EntropyCalibrator;
+		if (mode == Mode::INT8 && calibrator == Calibrator::Entropy) {
+			INFO("Using entropy calibrator");
 			auto calibratorDims = inputDims;
 			calibratorDims.d[0] = maxBatchSize;
 
-			if (hasEntropyCalibrator) {
-				INFO("Using exist entropy calibrator data[%d bytes]: %s", entropyCalibratorData.size(), int8EntropyCalibratorFile.c_str());
-				int8Calibrator.reset(new Int8EntropyCalibrator(
-					entropyCalibratorData, calibratorDims, int8process
+			if (hasCalibrator) {
+				INFO("Using exist entropy calibrator data[%d bytes]: %s", CalibratorData.size(), int8CalibratorFile.c_str());
+				int8EntropyCalibrator.reset(new Int8EntropyCalibrator(
+					CalibratorData, calibratorDims, int8process
 				));
 			}
 			else {
-				INFO("Using image list[%d files]: %s", entropyCalibratorFiles.size(), int8ImageDirectory.c_str());
-				int8Calibrator.reset(new Int8EntropyCalibrator(
-					entropyCalibratorFiles, calibratorDims, int8process
+				INFO("Using image list[%d files]: %s", CalibratorFiles.size(), int8ImageDirectory.c_str());
+				int8EntropyCalibrator.reset(new Int8EntropyCalibrator(
+					CalibratorFiles, calibratorDims, int8process
 				));
 			}
-			config->setInt8Calibrator(int8Calibrator.get());
+			config->setInt8Calibrator(int8EntropyCalibrator.get());
+		}
+
+		shared_ptr<Int8MinMaxCalibrator> int8MinMaxCalibrator;
+		if (mode == Mode::INT8 && calibrator == Calibrator::MinMax) {
+			INFO("Using minmax calibrator");
+			auto calibratorDims = inputDims;
+			calibratorDims.d[0] = maxBatchSize;
+
+			if (hasCalibrator) {
+				INFO("Using exist minmax calibrator data[%d bytes]: %s", CalibratorData.size(), int8CalibratorFile.c_str());
+				int8MinMaxCalibrator.reset(new Int8MinMaxCalibrator(
+					CalibratorData, calibratorDims, int8process
+				));
+			}
+			else {
+				INFO("Using image list[%d files]: %s", CalibratorFiles.size(), int8ImageDirectory.c_str());
+				int8MinMaxCalibrator.reset(new Int8MinMaxCalibrator(
+					CalibratorFiles, calibratorDims, int8process
+				));
+			}
+			config->setInt8Calibrator(int8MinMaxCalibrator.get());
 		}
 
 		INFO("Input shape is %s", join_dims(vector<int>(inputDims.d, inputDims.d + inputDims.nbDims)).c_str());
@@ -658,13 +770,18 @@ namespace TRT {
 		}
 
 		if (mode == Mode::INT8) {
-			if (!hasEntropyCalibrator) {
-				if (!int8EntropyCalibratorFile.empty()) {
-					INFO("Save calibrator to: %s", int8EntropyCalibratorFile.c_str());
-					iLogger::save_file(int8EntropyCalibratorFile, int8Calibrator->getEntropyCalibratorData());
+			if (!hasCalibrator) {
+				if (!int8CalibratorFile.empty()) {
+					INFO("Save calibrator to: %s", int8CalibratorFile.c_str());
+					if (calibrator == Calibrator::Entropy) {
+						iLogger::save_file(int8CalibratorFile, int8EntropyCalibrator->getEntropyCalibratorData());
+					}
+					else {
+						iLogger::save_file(int8CalibratorFile, int8MinMaxCalibrator->getEntropyCalibratorData());
+					}
 				}
 				else {
-					INFO("No set entropyCalibratorFile, and entropyCalibrator will not save.");
+					INFO("No set CalibratorFile, and Calibrator will not save.");
 				}
 			}
 		}
