@@ -1,4 +1,3 @@
-
 #include <builder/trt_builder.hpp>
 #include <infer/trt_infer.hpp>
 #include <common/ilogger.hpp>
@@ -8,30 +7,6 @@
 #include <string>
 
 using namespace std;
-
-static const char* cocolabels[] = {
-    "person", "bicycle", "car", "motorcycle", "airplane",
-    "bus", "train", "truck", "boat", "traffic light", "fire hydrant",
-    "stop sign", "parking meter", "bench", "bird", "cat", "dog", "horse",
-    "sheep", "cow", "elephant", "bear", "zebra", "giraffe", "backpack",
-    "umbrella", "handbag", "tie", "suitcase", "frisbee", "skis",
-    "snowboard", "sports ball", "kite", "baseball bat", "baseball glove",
-    "skateboard", "surfboard", "tennis racket", "bottle", "wine glass",
-    "cup", "fork", "knife", "spoon", "bowl", "banana", "apple", "sandwich",
-    "orange", "broccoli", "carrot", "hot dog", "pizza", "donut", "cake",
-    "chair", "couch", "potted plant", "bed", "dining table", "toilet", "tv",
-    "laptop", "mouse", "remote", "keyboard", "cell phone", "microwave",
-    "oven", "toaster", "sink", "refrigerator", "book", "clock", "vase",
-    "scissors", "teddy bear", "hair drier", "toothbrush"
-};
-
-bool requires(const char* name);
-
-struct BoxLabel{
-    int label;
-    float cx, cy, width, height;
-    float confidence;
-};
 
 struct ImageItem{
     string image_file;
@@ -58,10 +33,10 @@ vector<ImageItem> scan_dataset(const string& images_root){
     return output;
 }
 
-static void inference(vector<ImageItem>& images, int deviceid, const string& engine_file, TRT::Mode mode, Yolo::Type type, const string& model_name){
+static void inference(vector<ImageItem>& images, int deviceid, const string& engine_file, TRT::Mode mode, Yolo::Type type){
 
     auto engine = Yolo::create_infer(
-        engine_file, type, deviceid, 0.001f, 0.65f,
+        engine_file, type, deviceid, 0.03f, 0.65f,
         Yolo::NMSMethod::CPU, 10000
     );
     if(engine == nullptr){
@@ -82,64 +57,19 @@ static void inference(vector<ImageItem>& images, int deviceid, const string& eng
         images[i].detections = image_results[i].get();
 }
 
-void detect_images(vector<ImageItem>& images, Yolo::Type type, TRT::Mode mode, const string& model){
-
-    int deviceid = 0;
-    auto mode_name = TRT::mode_string(mode);
-    TRT::set_device(deviceid);
-
-    auto int8process = [=](int current, int count, const vector<string>& files, shared_ptr<TRT::Tensor>& tensor){
-
-        INFO("Int8 %d / %d", current, count);
-
-        for(int i = 0; i < files.size(); ++i){
-            auto image = cv::imread(files[i]);
-            Yolo::image_to_tensor(image, tensor, type, i);
-        }
-    };
-
-    const char* name = model.c_str();
-    INFO("===================== test %s %s %s ==================================", Yolo::type_name(type), mode_name, name);
-
-    if(not requires(name))
-        return;
-
-    string onnx_file = iLogger::format("%s.onnx", name);
-    string model_file = iLogger::format("%s.%s.trtmodel", name, mode_name);
-    int test_batch_size = 16;
-    
-    if(not iLogger::exists(model_file)){
-        TRT::compile(
-            mode,                       // FP32、FP16、INT8
-            test_batch_size,            // max batch size
-            onnx_file,                  // source 
-            model_file,                 // save to
-            {},
-            int8process,
-            "inference"
-        );
-    }
-    inference(images, deviceid, model_file, mode, type, name);
-}
-
 bool save_to_json(const vector<ImageItem>& images, const string& file){
 
-    int to_coco90_class_map[] = {
-        1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 27, 28, 31, 32, 33, 34,
-         35, 36, 37, 38, 39, 40, 41, 42, 43, 44, 46, 47, 48, 49, 50, 51, 52, 53, 54, 55, 56, 57, 58, 59, 60, 61, 62, 63,
-         64, 65, 67, 70, 72, 73, 74, 75, 76, 77, 78, 79, 80, 81, 82, 84, 85, 86, 87, 88, 89, 90
-    };
     Json::Value predictions(Json::arrayValue);
     for(int i = 0; i < images.size(); ++i){
         auto& image = images[i];
         auto file_name = iLogger::file_name(image.image_file, false);
-        int image_id = atoi(file_name.c_str());
+        string image_id = file_name;
 
         auto& boxes = image.detections;
         for(auto& box : boxes){
             Json::Value jitem;
             jitem["image_id"] = image_id;
-            jitem["category_id"] = to_coco90_class_map[box.class_label];
+            jitem["category_id"] = box.class_label;
             jitem["score"] = box.confidence;
 
             auto& bbox = jitem["bbox"];
@@ -167,13 +97,14 @@ int test_yolo_map(){
     6. 采用warpAffine和letterbox两种方式的预处理结果，在mAP上没有太大变化（小数点后三位差）
     7. mAP差一个点的原因可能在固定分辨率这件事上，还有是pytorch实现的所有细节并非完全加入进来。这些细节可能有没有
         找到的部分
+    8. 默认设置的 conf_thresh=0.03f, nms_thresh=0.65f
     */
 
-    auto images = scan_dataset("/data/sxai/dataset/coco/images/val2017");
+    auto images = scan_dataset("/home/jarvis/Learn/Datasets/VOC_PTQ/images/val");
     INFO("images.size = %d", images.size());
 
-    string model = "yolov5s";
-    detect_images(images, Yolo::Type::V5, TRT::Mode::FP32, model);
+    string model = "best.minmax.INT8.trtmodel";
+    inference(images, 0, model, TRT::Mode::INT8, Yolo::Type::V6);
     save_to_json(images, model + ".prediction.json");
     return 0;
 }
