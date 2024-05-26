@@ -19,13 +19,14 @@ namespace Yolo{
     using namespace ObjectDetector;
 
     enum class Type : int{
-        V5 = 0,
-        X  = 1,
-        V3 = 2,
-        V7 = 3,
-        V8 = 4,
-        V6 = 5,
-        V9 = 6
+        V5  = 0,
+        X   = 1,
+        V3  = 2,
+        V7  = 3,
+        V8  = 4,
+        V6  = 5,
+        V9  = 6,
+        V10 = 7
     };
 
     enum class NMSMethod : int{

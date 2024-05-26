@@ -23,6 +23,7 @@ namespace Yolo{
         case Type::V8: return "YoloV8";
         case Type::X: return "YoloX";
         case Type::V9: return "YoloV9";
+        case Type::V10: return "YoloV10";
         default: return "Unknow";
         }
     }
@@ -170,7 +171,7 @@ namespace Yolo{
             NMSMethod nms_method, int max_objects,
             bool use_multi_preprocess_stream
         ){
-            if(type == Type::V5 || type == Type::V3 || type == Type::V7 || type == Type::V8 || type == Type::V6 || type == Type::V9){
+            if(type == Type::V5 || type == Type::V3 || type == Type::V7 || type == Type::V8 || type == Type::V6 || type == Type::V9 || type == Type::V10){
                 normalize_ = CUDAKernel::Norm::alpha_beta(1 / 255.0f, 0.0f, CUDAKernel::ChannelType::Invert);
             }else if(type == Type::X){
                 //float mean[] = {0.485, 0.456, 0.406};
@@ -206,13 +207,14 @@ namespace Yolo{
             engine->print();
 
             const int MAX_IMAGE_BBOX  = max_objects_;
-            const int NUM_BOX_ELEMENT = 7;      // left, top, right, bottom, confidence, class, keepflag
+            const int NUM_BOX_ELEMENT = (type_ == Type::V10) ? 6 : 7;   // left, top, right, bottom, confidence, class, keepflag
+            
             TRT::Tensor affin_matrix_device(TRT::DataType::Float);
             TRT::Tensor output_array_device(TRT::DataType::Float);
             int max_batch_size = engine->get_max_batch_size();
             auto input         = engine->tensor("images");
             auto output        = engine->tensor("output");
-            int num_classes    = (type_ == Type::V8 || type_ == Type::V9) ? output->size(2) - 4 : output->size(2) - 5;
+            int num_classes    = (type_ == Type::V8 || type_ == Type::V9 || type_ == Type::V10) ? output->size(2) - 4 : output->size(2) - 5;
 
             input_width_       = input->size(3);
             input_height_      = input->size(2);
@@ -261,7 +263,7 @@ namespace Yolo{
                     checkCudaRuntime(cudaMemsetAsync(output_array_ptr, 0, sizeof(int), stream_));
                     decode_kernel_invoker(image_based_output, output->size(1), num_classes, confidence_threshold_, affine_matrix, output_array_ptr, MAX_IMAGE_BBOX, stream_, type_);
 
-                    if(nms_method_ == NMSMethod::FastGPU){
+                    if(nms_method_ == NMSMethod::FastGPU && type_ != Type::V10){
                         nms_kernel_invoker(output_array_ptr, nms_threshold_, MAX_IMAGE_BBOX, stream_);
                     }
                 }
@@ -274,14 +276,19 @@ namespace Yolo{
                     auto& image_based_boxes   = job.output;
                     for(int i = 0; i < count; ++i){
                         float* pbox  = parray + 1 + i * NUM_BOX_ELEMENT;
-                        int label    = pbox[5];
-                        int keepflag = pbox[6];
-                        if(keepflag == 1){
+                        if(type_ == Type::V10){
+                            int label = pbox[5];
                             image_based_boxes.emplace_back(pbox[0], pbox[1], pbox[2], pbox[3], pbox[4], label);
+                        }else{
+                            int label    = pbox[5];
+                            int keepflag = pbox[6];
+                            if(keepflag == 1){
+                                image_based_boxes.emplace_back(pbox[0], pbox[1], pbox[2], pbox[3], pbox[4], label);
+                            }
                         }
                     }
 
-                    if(nms_method_ == NMSMethod::CPU){
+                    if(nms_method_ == NMSMethod::CPU && type_ != Type::V10){
                         image_based_boxes = cpu_nms(image_based_boxes, nms_threshold_);
                     }
                     job.pro->set_value(image_based_boxes);

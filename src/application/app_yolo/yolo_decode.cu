@@ -5,6 +5,8 @@
 namespace Yolo{
 
     const int NUM_BOX_ELEMENT = 7;      // left, top, right, bottom, confidence, class, keepflag
+    const int NUM_BOX_ELEMENT_v10 = 6;  // left, top, right, bottom, confidence, class
+
     static __device__ void affine_project(float* matrix, float x, float y, float* ox, float* oy){
         *ox = matrix[0] * x + matrix[1] * y + matrix[2];
         *oy = matrix[3] * x + matrix[4] * y + matrix[5];
@@ -122,6 +124,36 @@ namespace Yolo{
         return c_area / (a_area + b_area - c_area);
     }
 
+    static __global__ void decode_kernel_v10(float *predict, int num_bboxes, float confidence_threshold, float* invert_affine_matrix, float* parray, int MAX_IMAGE_BOXES){
+        int position = blockDim.x * blockIdx.x + threadIdx.x;
+        if(position >= num_bboxes)  return;
+
+        float* pitem     = predict + NUM_BOX_ELEMENT_v10 * position;
+        float confidence = *(pitem + 4);
+        float label      = *(pitem + 5);
+        if(confidence < confidence_threshold)
+            return;
+
+        int index = atomicAdd(parray, 1);
+        if(index >= MAX_IMAGE_BOXES)
+            return;
+
+        float left       = *pitem++;
+        float top        = *pitem++;
+        float right      = *pitem++;
+        float bottom     = *pitem++;
+        affine_project(invert_affine_matrix, left,  top,    &left,  &top);
+        affine_project(invert_affine_matrix, right, bottom, &right, &bottom);
+
+        float* pout_item = parray + 1 + index * NUM_BOX_ELEMENT_v10;
+        *pout_item++ = left;
+        *pout_item++ = top;
+        *pout_item++ = right;
+        *pout_item++ = bottom;
+        *pout_item++ = confidence;
+        *pout_item++ = label;
+    }
+
     static __global__ void nms_kernel(float* bboxes, int max_objects, float threshold){
 
         int position = (blockDim.x * blockIdx.x + threadIdx.x);
@@ -158,6 +190,8 @@ namespace Yolo{
         auto block = CUDATools::block_dims(num_bboxes);
         if(type == Type::V8 || type == Type::V9){
             checkCudaKernel(decode_kernel_v8<<<grid, block, 0, stream>>>(predict, num_bboxes, num_classes, confidence_threshold, invert_affine_matrix, parray, max_objects));            
+        }else if(type == Type::V10){
+            checkCudaKernel(decode_kernel_v10<<<grid, block, 0, stream>>>(predict, num_bboxes, confidence_threshold, invert_affine_matrix, parray, max_objects))
         }else{
             checkCudaKernel(decode_kernel<<<grid, block, 0, stream>>>(predict, num_bboxes, num_classes, confidence_threshold, invert_affine_matrix, parray, max_objects));
         }

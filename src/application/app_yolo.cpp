@@ -283,5 +283,6 @@ int app_yolo(){
     // test(Yolo::Type::V6, TRT::Mode::FP32, "yolov6s");
     // test(Yolo::Type::V7, TRT::Mode::FP32, "yolov7");
     // test(Yolo::Type::V9, TRT::Mode::FP32, "yolov9c");
+    // test(Yolo::Type::V10, TRT::Mode::FP32, "yolov10s");
     return 0;
 }
