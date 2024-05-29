@@ -20,6 +20,8 @@
 
 
 ## Top News
+- **2024/5/29**
+  - 修改 YOLOv6 的 ONNX 导出以及推理
 - **2024/5/26**
   - YOLOv10 支持
 - **2024/3/5**
@@ -273,7 +275,7 @@ make yolo -j64
 git clone https://github.com/meituan/YOLOv6.git
 ```
 
-2. 修改代码, 保证动态 batch
+2. 修改代码, 保证动态 batch，并去除 anchor 维度
 
 
 ```python
@@ -306,6 +308,58 @@ torch.onnx.export(model, img, f, verbose=False, opset_version=13,
                     output_names=['num_dets', 'det_boxes', 'det_scores', 'det_classes']
                     if args.end2end else ['output'],
                     dynamic_axes=dynamic_axes)
+
+# 根据不同的 head 去除 anchor 维度
+# ========== effidehead_distill_ns.py ==========
+# YOLOv6/yolov6/models/heads/effidehead_distill_ns.py第141行
+# return torch.cat(
+#     [
+#         pred_bboxes,
+#         torch.ones((b, pred_bboxes.shape[1], 1), device=pred_bboxes.device, dtype=pred_bboxes.dtype),
+#         cls_score_list
+#     ],
+#     axis=-1)
+# 修改为：
+return torch.cat(
+    [
+        pred_bboxes,
+        cls_score_list
+    ],
+    axis=-1)
+
+# ========== effidehead_fuseab.py ==========
+# YOLOv6/yolov6/models/heads/effidehead_fuseab.py第191行
+# return torch.cat(
+#     [
+#         pred_bboxes,
+#         torch.ones((b, pred_bboxes.shape[1], 1), device=pred_bboxes.device, dtype=pred_bboxes.dtype),
+#         cls_score_list
+#     ],
+#     axis=-1)
+# 修改为：
+return torch.cat(
+    [
+        pred_bboxes,
+        cls_score_list
+    ],
+    axis=-1)
+
+# ========== effidehead_lite.py ==========
+# YOLOv6/yolov6/models/heads/effidehead_lite.py第123行
+# return torch.cat(
+#     [
+#         pred_bboxes,
+#         torch.ones((b, pred_bboxes.shape[1], 1), device=pred_bboxes.device, dtype=pred_bboxes.dtype),
+#         cls_score_list
+#     ],
+#     axis=-1)
+# 修改为：
+return torch.cat(
+    [
+        pred_bboxes,
+        cls_score_list
+    ],
+    axis=-1)
 ```
 
 3. 导出 onnx 模型

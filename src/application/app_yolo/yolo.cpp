@@ -214,7 +214,7 @@ namespace Yolo{
             int max_batch_size = engine->get_max_batch_size();
             auto input         = engine->tensor("images");
             auto output        = engine->tensor("output");
-            int num_classes    = (type_ == Type::V8 || type_ == Type::V9 || type_ == Type::V10) ? output->size(2) - 4 : output->size(2) - 5;
+            int num_classes    = (type_ == Type::V6 || type_ == Type::V8 || type_ == Type::V9 || type_ == Type::V10) ? output->size(2) - 4 : output->size(2) - 5;
 
             input_width_       = input->size(3);
             input_height_      = input->size(2);
