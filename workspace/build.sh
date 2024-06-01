@@ -9,3 +9,6 @@ ${TRTEXEC} --onnx=rtdetr-l.onnx --minShapes=images:1x3x640x640 --optShapes=image
 
 # yolov10
 # ${TRTEXEC} --onnx=yolov10s.onnx --minShapes=images:1x3x640x640 --optShapes=images:1x3x640x640 --maxShapes=images:16x3x640x640 --saveEngine=yolov10s.FP32.trtmodel
+
+# rtmo
+# ${TRTEXEC} --onnx=rtmo-s_8xb32-600e_body7-640x640.onnx --minShapes=images:1x3x640x640 --optShapes=images:1x3x640x640 --maxShapes=images:16x3x640x640 --saveEngine=rtmo-s_8xb32-600e_body7-640x640.FP32.trtmodel

@@ -3,7 +3,7 @@
 
 该仓库基于 [shouxieai/tensorRT_Pro](https://github.com/shouxieai/tensorRT_Pro)，并进行了调整以支持 YOLOv8 的各项任务。
 
-* 目前已支持 YOLOv8、YOLOv8-Cls、YOLOv8-Seg、YOLOv8-OBB、YOLOv8-Pose、RT-DETR、ByteTrack、YOLOv9、YOLOv10 高性能推理！！！🚀🚀🚀
+* 目前已支持 YOLOv8、YOLOv8-Cls、YOLOv8-Seg、YOLOv8-OBB、YOLOv8-Pose、RT-DETR、ByteTrack、YOLOv9、YOLOv10、RTMO 高性能推理！！！🚀🚀🚀
 * 基于 tensorRT8.x，C++ 高级接口，C++ 部署，服务器/嵌入式使用
 
 <div align=center><img src="./assets/output.jpg" width="50%" height="50%"></div>
@@ -17,9 +17,12 @@
 - 🔥 [RT-DETR推理详解及部署实现](https://blog.csdn.net/qq_40672115/article/details/134356250)
 - 🔥 [YOLOv9推理详解及部署实现](https://blog.csdn.net/qq_40672115/article/details/136492338)
 - 🔥 [YOLOv10推理详解及部署实现](https://blog.csdn.net/qq_40672115/article/details/139216405)
-
+- 🔥 [MMPose-RTMO推理详解及部署实现（上）]
+- 🔥 [MMPose-RTMO推理详解及部署实现（下）] 
 
 ## Top News
+- **2024/6/1**
+  - RTMO 支持
 - **2024/5/29**
   - 修改 YOLOv6 的 ONNX 导出以及推理
 - **2024/5/26**
@@ -856,17 +859,17 @@ make bytetrack -j64
 <details>
 <summary>YOLOv9支持</summary>
 
-0. 说明
+1. 说明
    
 本项目的 YOLOv9 部署实现并不是官方原版，而是采用的集成到 ultralytics 的 YOLOv9
 
-1. 下载 YOLOv8
+2. 下载 YOLOv8
 
 ```shell
 git clone https://github.com/ultralytics/ultralytics.git
 ```
 
-2. 修改代码, 保证动态 batch
+3. 修改代码, 保证动态 batch
 
 ```python
 # ========== head.py ==========
@@ -902,7 +905,7 @@ if dynamic:
         dynamic['output'] = {0: 'batch'}  # shape(1, 84, 8400)
 ```
 
-3. 导出 onnx 模型, 在 ultralytics-main 新建导出文件 `export.py` 内容如下：
+4. 导出 onnx 模型, 在 ultralytics-main 新建导出文件 `export.py` 内容如下：
 
 ```python
 # ========== export.py ==========
@@ -918,7 +921,7 @@ cd ultralytics-main
 python export.py
 ```
 
-4. 复制模型并执行
+5. 复制模型并执行
 
 ```shell
 cp ultralytics/yolov9c.onnx tensorRT_Pro-YOLOv8/workspace
@@ -1000,6 +1003,140 @@ bash build.sh
 
 ```shell
 make yolo -j64
+```
+
+</details>
+
+<details>
+
+<summary>RTMO支持</summary>
+
+1. 前置条件
+
+- **tensorRT >= 8.6**
+
+2. RTMO 导出环境搭建
+
+```shell
+conda create -n mmpose python=3.9
+conda activate mmpose
+pip install torch==2.0.1 torchvision==0.15.2 torchaudio==2.0.2 --index-url https://download.pytorch.org/whl/cu118
+pip install -U openmim
+mim install mmengine
+mim install "mmcv>=2.0.0rc2"
+mim install "mmpose>=1.1.0"
+pip install mmdeploy==1.3.1
+pip install mmdeploy-runtime==1.3.1
+```
+
+3. 项目克隆
+
+```shell
+git clone https://github.com/open-mmlab/mmpose.git
+```   
+
+4. 预训练权重下载
+
+- 参考：[https://github.com/open-mmlab/mmpose/tree/main/projects/rtmo-model-zoo](https://github.com/open-mmlab/mmpose/tree/main/projects/rtmo#%EF%B8%8F-model-zoo)
+
+5. 导出 onnx 模型，在 mmpose-main 新建导出文件 `export.py` 内容如下：
+
+```python
+import torch
+from mmpose.apis import init_model
+from mmpose.structures.bbox import bbox_xyxy2cs
+
+class MyModel(torch.nn.Module):
+    def __init__(self) -> None:
+        super().__init__()
+        self.model = init_model(config_file, checkpoint_file, device=device)
+        test_cfg = {'input_size': (640, 640)}
+        self.model.neck.switch_to_deploy(test_cfg)
+        self.model.head.switch_to_deploy(test_cfg)
+        self.model.head.dcc.switch_to_deploy(test_cfg)
+
+    def forward(self, x):
+        x = self.model.backbone(x)
+        x = self.model.neck(x)
+        cls_scores, bbox_preds, _, kpt_vis, pose_vecs = self.model.head(x)[:5]
+        scores = self.model.head._flatten_predictions(cls_scores).sigmoid()
+        flatten_bbox_preds = self.model.head._flatten_predictions(bbox_preds)
+        flatten_pose_vecs  = self.model.head._flatten_predictions(pose_vecs)
+        flatten_kpt_vis    = self.model.head._flatten_predictions(kpt_vis).sigmoid()
+        bboxes = self.model.head.decode_bbox(flatten_bbox_preds, self.model.head.flatten_priors,
+                                             self.model.head.flatten_stride)
+        dets      = torch.cat([bboxes, scores], dim=2)
+        grids     = self.model.head.flatten_priors
+        bbox_cs   = torch.cat(bbox_xyxy2cs(dets[..., :4], self.model.head.bbox_padding), dim=-1)
+        keypoints = self.model.head.dcc.forward_test(flatten_pose_vecs, bbox_cs, grids)
+        pred_kpts = torch.cat([keypoints, flatten_kpt_vis.unsqueeze(-1)], dim=-1)
+        bs, bboxes, ny, nx = map(int, pred_kpts.shape)
+        bs = -1
+        pred_kpts = pred_kpts.view(bs, bboxes, ny*nx)
+        return torch.cat([dets, pred_kpts], dim=2)
+
+if __name__ == "__main__":
+
+    device = "cpu"
+    config_file     = "configs/body_2d_keypoint/rtmo/body7/rtmo-s_8xb32-600e_body7-640x640.py"
+    checkpoint_file = "rtmo-s_8xb32-600e_body7-640x640-dac2bf74_20231211.pth"
+
+    model = MyModel()
+    model.eval()
+
+    x = torch.zeros(1, 3, 640, 640, device=device)
+    dynamic_batch = {'images': {0: 'batch'}, 'output': {0: 'batch'}}
+    torch.onnx.export(
+        model,
+        (x,),
+        "rtmo-s_8xb32-600e_body7-640x640.onnx",
+        input_names=["images"],
+        output_names=["output"],
+        opset_version=17,
+        dynamic_axes=dynamic_batch
+    )
+
+    # Checks
+    import onnx
+    model_onnx = onnx.load("rtmo-s_8xb32-600e_body7-640x640.onnx")
+    # onnx.checker.check_model(model_onnx)    # check onnx model
+
+    # Simplify
+    try:
+        import onnxsim
+
+        print(f"simplifying with onnxsim {onnxsim.__version__}...")
+        model_onnx, check = onnxsim.simplify(model_onnx)
+        assert check, "Simplified ONNX model could not be validated"
+    except Exception as e:
+        print(f"simplifier failure: {e}")
+
+    onnx.save(model_onnx, "rtmo-s_8xb32-600e_body7-640x640.onnx")
+    print(f"simplify done.")
+```
+
+```shell
+cd mmpose-main
+conda activate mmpose
+python export.py
+```
+
+6. engien 生成
+
+- **方案一**：替换 tensorRT_Pro-YOLOv8 中的 onnxparser 解析器，具体可参考文章：[RT-DETR推理详解及部署实现](https://blog.csdn.net/qq_40672115/article/details/134356250)
+- **方案二**：利用 **trtexec** 工具生成 engine
+
+```shell
+cp mmpose/rtmo-s_8xb32-600e_body7-640x640.onnx tensorRT_Pro-YOLOv8/workspace
+cd tensorRT_Pro-YOLOv8/workspace
+# 取消 build.sh 中 rtmo engine 生成的注释
+bash build.sh
+```
+
+7. 执行
+
+```shell
+make rtmo -j64
 ```
 
 </details>
