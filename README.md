@@ -18,7 +18,7 @@
 - 🔥 [YOLOv9推理详解及部署实现](https://blog.csdn.net/qq_40672115/article/details/136492338)
 - 🔥 [YOLOv10推理详解及部署实现](https://blog.csdn.net/qq_40672115/article/details/139216405)
 - 🔥 [MMPose-RTMO推理详解及部署实现（上）](https://blog.csdn.net/qq_40672115/article/details/139364023)
-- 🔥 [MMPose-RTMO推理详解及部署实现（下）] 
+- 🔥 [MMPose-RTMO推理详解及部署实现（下）](https://blog.csdn.net/qq_40672115/article/details/139375752)
 
 ## Top News
 - **2024/6/1**
