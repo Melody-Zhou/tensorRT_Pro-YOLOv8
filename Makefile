@@ -116,6 +116,9 @@ bytetrack : workspace/pro
 rtdetr : workspace/pro
 	@cd workspace && ./pro rtdetr
 
+rtmo : workspace/pro
+	@cd workspace && ./pro rtmo
+
 test_yolo_map : workspace/pro
 	@cd workspace && ./pro test_yolo_map
 
