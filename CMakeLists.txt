@@ -58,6 +58,16 @@ target_link_libraries(plugin_list protobuf pthread)
 target_link_libraries(plugin_list ${OpenCV_LIBS})
 target_link_libraries(plugin_list opencv_core opencv_imgproc opencv_videoio opencv_highgui opencv_imgcodecs)
 
+########################## custom_layernorm.so ################################
+cuda_add_library(custom_layernorm SHARED
+  src/tensorRT/onnxplugin/plugins/custom_layernorm.cu
+)
+
+target_link_libraries(custom_layernorm
+  libnvinfer.so
+  libnvinfer_plugin.so
+)
+
 add_executable(pro ${cpp_srcs})
 
 # 如果提示插件找不到，请使用dlopen(xxx.so, NOW)的方式手动加载可以解决插件找不到问题
@@ -66,6 +76,7 @@ target_link_libraries(pro cuda cublas cudart cudnn)
 target_link_libraries(pro protobuf pthread plugin_list)
 target_link_libraries(pro ${OpenCV_LIBS})
 target_link_libraries(pro opencv_core opencv_imgproc opencv_videoio opencv_highgui opencv_imgcodecs)
+# target_link_libraries(pro dl)
 
 add_custom_target(
     yolo

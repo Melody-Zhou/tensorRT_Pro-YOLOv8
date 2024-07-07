@@ -19,8 +19,12 @@
 - 🔥 [YOLOv10推理详解及部署实现](https://blog.csdn.net/qq_40672115/article/details/139216405)
 - 🔥 [MMPose-RTMO推理详解及部署实现（上）](https://blog.csdn.net/qq_40672115/article/details/139364023)
 - 🔥 [MMPose-RTMO推理详解及部署实现（下）](https://blog.csdn.net/qq_40672115/article/details/139375752)
+- 🔥 [LayerNorm Plugin的使用与说明](https://blog.csdn.net/qq_40672115/article/details/140246052)
 
 ## Top News
+- **2024/7/7**
+  - LayerNorm Plugin 支持，代码 copy 自 [CUDA-BEVFusion/src/plugins/custom_layernorm.cu](https://github.com/NVIDIA-AI-IOT/Lidar_AI_Solution/blob/master/CUDA-BEVFusion/src/plugins/custom_layernorm.cu)
+  - 提供 ONNX 模型下载（[Baidu Drive](https://pan.baidu.com/s/1MbPYzUEkONsjCPOudiTt1A?pwd=onnx)），方便大家测试使用
 - **2024/6/1**
   - RTMO 支持
 - **2024/5/29**
@@ -1138,6 +1142,77 @@ bash build.sh
 ```shell
 make rtmo -j64
 ```
+
+</details>
+
+<details>
+
+<summary>LayerNorm Plugin支持</summary>
+
+1. 说明
+
+* 当需要在低版本的 tensorRT 中解析 LayerNorm 算子时可以通过该插件支持
+* LayerNorm 插件实现代码 copy 自 [CUDA-BEVFusion/src/plugins/custom_layernorm.cu](https://github.com/NVIDIA-AI-IOT/Lidar_AI_Solution/blob/master/CUDA-BEVFusion/src/plugins/custom_layernorm.cu)，代码进行了略微修改
+* LayerNorm 插件的封装在推理时存在一些问题，因此并未使用
+
+2. libcustom_layernorm.so 生成
+
+```shell
+cd tensorRT_Pro-YOLOv8
+mkdir build && cd build
+cmake .. && make -j64
+cp libcustom_layernorm.so ../workspace
+```
+
+3. ONNX 模型修改（RTMO 为例说明，其它模型类似）
+
+利用 onnx_graphsurgeon 修改原始 LayerNorm 的 op_type，代码如下：
+
+```python
+import onnx
+import onnx_graphsurgeon as gs
+
+# 加载 ONNX 模型
+input_model_path = "rtmo-s_8xb32-600e_body7-640x640.onnx"
+output_model_path = "rtmo-s_8xb32-600e_body7-640x640.plugin.onnx"
+graph = gs.import_onnx(onnx.load(input_model_path))
+
+# 遍历图中的所有节点
+for node in graph.nodes:
+    if node.op == "LayerNormalization":
+        node.op = "CustomLayerNormalization"
+        # 添加自定义属性
+        node.attrs["name"] = "LayerNormPlugin"
+        node.attrs["info"] = "This is custom LayerNormalization node"
+
+# 删除无用的节点和张量
+graph.cleanup()
+
+# 导出修改后的模型
+onnx.save(gs.export_onnx(graph), output_model_path)
+```
+
+4. engine 生成
+
+利用 **trtexec** 工具加载插件解析 ONNX，新建 build.sh 脚本文件并执行，内容如下：
+
+```shell
+#! /usr/bin/bash
+
+TRTEXEC=/home/jarvis/lean/TensorRT-8.5.1.7/bin/trtexec
+
+# export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:/home/jarvis/lean/TensorRT-8.5.1.7/lib
+
+${TRTEXEC} \
+  --onnx=rtmo-s_8xb32-600e_body7-640x640.onnx \
+  --minShapes=images:1x3x640x640 \
+  --optShapes=images:1x3x640x640 \
+  --maxShapes=images:4x3x640x640 \
+  --memPoolSize=workspace:2048 \
+  --saveEngine=rtmo-s_8xb32-600e_body7-640x640.FP32.trtmodel \
+  > trtexec_output.log 2>&1
+```
+
 
 </details>
 
