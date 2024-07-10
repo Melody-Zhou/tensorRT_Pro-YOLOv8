@@ -1204,12 +1204,13 @@ TRTEXEC=/home/jarvis/lean/TensorRT-8.5.1.7/bin/trtexec
 # export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:/home/jarvis/lean/TensorRT-8.5.1.7/lib
 
 ${TRTEXEC} \
-  --onnx=rtmo-s_8xb32-600e_body7-640x640.onnx \
+  --onnx=rtmo-s_8xb32-600e_body7-640x640.plugin.onnx \
+  --plugins=libcustom_layernorm.so \
   --minShapes=images:1x3x640x640 \
   --optShapes=images:1x3x640x640 \
   --maxShapes=images:4x3x640x640 \
   --memPoolSize=workspace:2048 \
-  --saveEngine=rtmo-s_8xb32-600e_body7-640x640.FP32.trtmodel \
+  --saveEngine=rtmo-s_8xb32-600e_body7-640x640.plugin.FP32.trtmodel \
   > trtexec_output.log 2>&1
 ```
 
