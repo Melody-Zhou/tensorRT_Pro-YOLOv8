@@ -1,6 +1,9 @@
 cc        := g++
 nvcc      = ${lean_cuda}/bin/nvcc
 
+build_pango_backend    := no
+build_truetype_backend := yes
+
 lean_protobuf  := /home/jarvis/protobuf
 # lean_tensor_rt := /opt/TensorRT-8.4.1.5
 # RT-DETR 必须指定高版本的 tensorRT
@@ -44,6 +47,15 @@ link_librarys := opencv_core opencv_imgproc opencv_videoio opencv_highgui opencv
 			cuda cublas cudart cudnn \
 			stdc++ protobuf dl
 
+ifeq ($(build_pango_backend), yes)
+link_librarys += pango-1.0 cairo pangocairo-1.0 glib-2.0 gobject-2.0
+cppdefine += -DENABLE_TEXT_BACKEND_PANGO
+endif
+
+ifeq ($(build_truetype_backend), yes)
+cppdefine += -DENABLE_TEXT_BACKEND_STB
+endif
+
 empty         :=
 export_path   := $(subst $(empty) $(empty),:,$(library_paths))
 
@@ -52,7 +64,7 @@ include_paths := $(foreach item,$(include_paths),-I$(item))
 library_paths := $(foreach item,$(library_paths),-L$(item))
 link_librarys := $(foreach item,$(link_librarys),-l$(item))
 
-cpp_compile_flags := -std=c++11 -g -w -O0 -fPIC -pthread -fopenmp
+cpp_compile_flags := -std=c++11 -g -w -O0 -fPIC -pthread -fopenmp $(cppdefine)
 cu_compile_flags  := -std=c++11 -g -w -O0 -Xcompiler "$(cpp_compile_flags)" $(cuda_arch)
 link_flags        := -pthread -fopenmp -Wl,-rpath='$$ORIGIN'
 
@@ -119,6 +131,9 @@ rtdetr : workspace/pro
 rtmo : workspace/pro
 	@cd workspace && ./pro rtmo
 
+ppocr : workspace/pro
+	@cd workspace && ./pro ppocr
+
 test_yolo_map : workspace/pro
 	@cd workspace && ./pro test_yolo_map
 
@@ -131,5 +146,5 @@ clean :
 .PHONY : clean yolo  debug
 
 # 导出符号，使得运行时能够链接上
-# export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:/home/zhouwenguang/lean/TensorRT-8.5.1.7/lib
+# export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:/home/jarvis/lean/TensorRT-8.6.1.6/lib
 export LD_LIBRARY_PATH:=$(export_path):$(LD_LIBRARY_PATH)

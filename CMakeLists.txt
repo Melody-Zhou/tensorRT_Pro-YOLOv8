@@ -49,6 +49,19 @@ link_directories(
 
 set(CMAKE_CXX_FLAGS  "${CMAKE_CXX_FLAGS} -std=c++11 -Wall -O0 -Wfatal-errors -pthread -w -g")
 set(CUDA_NVCC_FLAGS "${CUDA_NVCC_FLAGS} -std=c++11 -O0 -Xcompiler -fPIC -g -w ${CUDA_GEN_CODE}")
+
+option(BUILD_PANGO_BACKEND "Build with Pango backend" OFF)
+option(BUILD_TRUETYPE_BACKEND "Build with TrueType backend" ON)
+
+if(BUILD_PANGO_BACKEND)
+    set(PANGO_LIBS ${PANGO_LIBS} pango-1.0 cairo pangocairo-1.0 glib-2.0 gobject-2.0)
+    add_definitions(-DENABLE_TEXT_BACKEND_PANGO)
+endif()
+
+if(BUILD_TRUETYPE_BACKEND)
+    add_definitions(-DENABLE_TEXT_BACKEND_STB)
+endif()
+
 file(GLOB_RECURSE cpp_srcs ${PROJECT_SOURCE_DIR}/src/*.cpp)
 file(GLOB_RECURSE cuda_srcs ${PROJECT_SOURCE_DIR}/src/*.cu)
 cuda_add_library(plugin_list SHARED ${cuda_srcs})
@@ -77,6 +90,7 @@ target_link_libraries(pro protobuf pthread plugin_list)
 target_link_libraries(pro ${OpenCV_LIBS})
 target_link_libraries(pro opencv_core opencv_imgproc opencv_videoio opencv_highgui opencv_imgcodecs)
 # target_link_libraries(pro dl)
+# target_link_libraries(pro ${PANGO_LIBS})
 
 add_custom_target(
     yolo
@@ -132,6 +146,13 @@ add_custom_target(
     DEPENDS pro
     WORKING_DIRECTORY ${PROJECT_SOURCE_DIR}/workspace
     COMMAND ./pro rtmo
+)
+
+add_custom_target(
+    ppocr
+    DEPENDS pro
+    WORKING_DIRECTORY ${PROJECT_SOURCE_DIR}/workspace
+    COMMAND ./pro ppocr
 )
 
 add_custom_target(

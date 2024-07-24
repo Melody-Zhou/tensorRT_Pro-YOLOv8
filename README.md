@@ -3,7 +3,7 @@
 
 该仓库基于 [shouxieai/tensorRT_Pro](https://github.com/shouxieai/tensorRT_Pro)，并进行了调整以支持 YOLOv8 的各项任务。
 
-* 目前已支持 YOLOv8、YOLOv8-Cls、YOLOv8-Seg、YOLOv8-OBB、YOLOv8-Pose、RT-DETR、ByteTrack、YOLOv9、YOLOv10、RTMO 高性能推理！！！🚀🚀🚀
+* 目前已支持 YOLOv8、YOLOv8-Cls、YOLOv8-Seg、YOLOv8-OBB、YOLOv8-Pose、RT-DETR、ByteTrack、YOLOv9、YOLOv10、RTMO、PP-OCRv4 高性能推理！！！🚀🚀🚀
 * 基于 tensorRT8.x，C++ 高级接口，C++ 部署，服务器/嵌入式使用
 
 <div align=center><img src="./assets/output.jpg" width="50%" height="50%"></div>
@@ -20,8 +20,14 @@
 - 🔥 [MMPose-RTMO推理详解及部署实现（上）](https://blog.csdn.net/qq_40672115/article/details/139364023)
 - 🔥 [MMPose-RTMO推理详解及部署实现（下）](https://blog.csdn.net/qq_40672115/article/details/139375752)
 - 🔥 [LayerNorm Plugin的使用与说明](https://blog.csdn.net/qq_40672115/article/details/140246052)
+- 🔥 [PaddleOCR-PP-OCRv4推理详解及部署实现（上）](https://blog.csdn.net/qq_40672115/article/details/140571346)
+- 🔥 [PaddleOCR-PP-OCRv4推理详解及部署实现（中）](https://blog.csdn.net/qq_40672115/article/details/140585830)
+- 🔥 [PaddleOCR-PP-OCRv4推理详解及部署实现（下）]
 
 ## Top News
+- **2024/7/24**
+  - PP-OCRv4 支持
+  - cuOSD 支持，代码 copy 自 [Lidar_AI_Solution/libraries/cuOSD](https://github.com/NVIDIA-AI-IOT/Lidar_AI_Solution/tree/master/libraries/cuOSD)
 - **2024/7/7**
   - LayerNorm Plugin 支持，代码 copy 自 [CUDA-BEVFusion/src/plugins/custom_layernorm.cu](https://github.com/NVIDIA-AI-IOT/Lidar_AI_Solution/blob/master/CUDA-BEVFusion/src/plugins/custom_layernorm.cu)
   - 提供 ONNX 模型下载（[Baidu Drive](https://pan.baidu.com/s/1MbPYzUEkONsjCPOudiTt1A?pwd=onnx)），方便大家测试使用
@@ -1214,6 +1220,48 @@ ${TRTEXEC} \
   > trtexec_output.log 2>&1
 ```
 
+</details>
+
+<details>
+<summary>PP-OCRv4支持</summary>
+
+1. 导出环境搭建
+
+```shell
+conda create --name paddleocr python=3.9
+conda activate paddleocr
+pip install shapely scikit-image imgaug pyclipper lmdb tqdm numpy==1.26.4 rapidfuzz onnxruntime
+pip install "opencv-python<=4.6.0.66" "opencv-contrib-python<=4.6.0.66" cython "Pillow>=10.0.0" pyyaml requests
+pip install paddlepaddle paddleocr paddle2onnx
+```
+
+2. 项目克隆
+
+```shell
+git clone https://github.com/PaddlePaddle/PaddleOCR.git
+```
+
+3. 预训练权重下载
+
+- 参考：[🛠️ PP-OCR 系列模型列表（更新中）](https://github.com/PaddlePaddle/PaddleOCR?tab=readme-ov-file#%EF%B8%8F-pp-ocr-%E7%B3%BB%E5%88%97%E6%A8%A1%E5%9E%8B%E5%88%97%E8%A1%A8%E6%9B%B4%E6%96%B0%E4%B8%AD)
+
+4. 导出 onnx 模型，具体流程请参考：[PaddleOCR-PP-OCRv4推理详解及部署实现（上）](https://blog.csdn.net/qq_40672115/article/details/140571346)
+
+5. engine 生成
+   
+- **方案一**：利用 **TRT::compile** 接口，HardSwish 算子解析问题可以通过插件或者替换 onnxparser 解析器解决
+- **方案二**：利用 **trtexec** 工具生成 engine (**recommend**)
+
+```shell
+cd tensorRT_Pro-YOLOv8/workspace
+bash ocr_build.sh
+```
+
+6. 执行
+
+```shell
+make ppocr -j64
+```
 
 </details>
 

@@ -258,6 +258,8 @@ namespace TRT {
 		
 		EngineContext* context = (EngineContext*)this->context_.get();
 		int nbBindings = context->engine_->getNbBindings();
+		// nvinfer1::Dims maxDims = context->engine_->getProfileDimensions(0, 0, nvinfer1::OptProfileSelector::kMAX);
+		// int max_batchsize = maxDims.d[0];
 		int max_batchsize = context->engine_->getMaxBatchSize();
 
 		inputs_.clear();
@@ -419,6 +421,9 @@ namespace TRT {
 
 	int InferImpl::get_max_batch_size() {
 		Assert(this->context_ != nullptr);
+		// nvinfer1::Dims maxDims = this->context_->engine_->getProfileDimensions(0, 0, nvinfer1::OptProfileSelector::kMAX);
+		// int max_batchsize = maxDims.d[0];
+		// return max_batchsize;
 		return this->context_->engine_->getMaxBatchSize();
 	}
 

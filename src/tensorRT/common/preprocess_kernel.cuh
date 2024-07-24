@@ -38,6 +38,11 @@ namespace CUDAKernel{
 		const Norm& norm,
 		cudaStream_t stream);
 
+    void resize_normalize_image(
+        uint8_t* src, int src_line_size, int src_width, int src_height, float* dst, int dst_width, int dst_height, int resized_w,
+        const Norm& norm,
+        cudaStream_t stream);
+
     void crop_resize_bilinear_and_normalize(
 		uint8_t* src, int src_line_size, int src_width, int src_height, float* dst, int dst_width, int dst_height,
 		const Norm& norm,
