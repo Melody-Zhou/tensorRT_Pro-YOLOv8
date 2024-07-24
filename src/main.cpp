@@ -12,6 +12,7 @@ int app_yolo_pose();
 int app_bytetrack();
 int app_rtdetr();
 int app_rtmo();
+int app_ppocr();
 int test_yolo_map();
 
 int main(int argc, char** argv){
@@ -37,6 +38,8 @@ int main(int argc, char** argv){
         app_rtdetr();
     }else if(strcmp(method, "rtmo") == 0){
         app_rtmo();
+    }else if(strcmp(method, "ppocr") == 0){
+        app_ppocr();
     }else if(strcmp(method, "test_yolo_map") == 0){
         test_yolo_map();
     }else{
