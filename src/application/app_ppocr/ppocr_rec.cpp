@@ -90,6 +90,8 @@ namespace SVTRRecognizer{
             gpu_              = gpuid;
             result.set_value(true);
 
+            input->resize_single_dim(0, max_batch_size).to_gpu();
+
             vector<Job> fetch_jobs;
             while(get_jobs_and_wait(fetch_jobs, max_batch_size)){
 
