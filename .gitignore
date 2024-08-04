@@ -59,3 +59,4 @@
 /src/application/logo.cpp
 /workspace/calib_data
 /workspace/*.cache
+/workspace/*.log

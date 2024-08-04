@@ -3,7 +3,7 @@
 
 该仓库基于 [shouxieai/tensorRT_Pro](https://github.com/shouxieai/tensorRT_Pro)，并进行了调整以支持 YOLOv8 的各项任务。
 
-* 目前已支持 YOLOv8、YOLOv8-Cls、YOLOv8-Seg、YOLOv8-OBB、YOLOv8-Pose、RT-DETR、ByteTrack、YOLOv9、YOLOv10、RTMO、PP-OCRv4 高性能推理！！！🚀🚀🚀
+* 目前已支持 YOLOv8、YOLOv8-Cls、YOLOv8-Seg、YOLOv8-OBB、YOLOv8-Pose、RT-DETR、ByteTrack、YOLOv9、YOLOv10、RTMO、PP-OCRv4、LaneATT 高性能推理！！！🚀🚀🚀
 * 基于 tensorRT8.x，C++ 高级接口，C++ 部署，服务器/嵌入式使用
 
 <div align=center><img src="./assets/output.jpg" width="50%" height="50%"></div>
@@ -23,8 +23,13 @@
 - 🔥 [PaddleOCR-PP-OCRv4推理详解及部署实现（上）](https://blog.csdn.net/qq_40672115/article/details/140571346)
 - 🔥 [PaddleOCR-PP-OCRv4推理详解及部署实现（中）](https://blog.csdn.net/qq_40672115/article/details/140585830)
 - 🔥 [PaddleOCR-PP-OCRv4推理详解及部署实现（下）](https://blog.csdn.net/qq_40672115/article/details/140648937)
+- 🔥 [LaneATT推理详解及部署实现（上）](https://blog.csdn.net/qq_40672115/article/details/140891544)
+- 🔥 [LaneATT推理详解及部署实现（下）](https://blog.csdn.net/qq_40672115/article/details/140909528)
 
 ## Top News
+- **2024/8/4**
+  - LaneATT 支持
+  - 提供测试视频下载（[Baidu Drive](https://pan.baidu.com/s/1g-DvhZSIbXhEqp4iiFANTQ?pwd=lane )）
 - **2024/7/24**
   - PP-OCRv4 支持
   - cuOSD 支持，代码 copy 自 [Lidar_AI_Solution/libraries/cuOSD](https://github.com/NVIDIA-AI-IOT/Lidar_AI_Solution/tree/master/libraries/cuOSD)
@@ -1261,6 +1266,172 @@ bash ocr_build.sh
 
 ```shell
 make ppocr -j64
+```
+
+</details>
+
+<details>
+<summary>LaneATT支持</summary>
+
+1. 导出环境搭建
+
+```shell
+conda create -n laneatt python=3.10
+conda activate laneatt
+pip install torch==2.0.1 torchvision==0.15.2 torchaudio==2.0.2
+pip install pyyaml opencv-python scipy imgaug numpy==1.26.4 tqdm p_tqdm ujson scikit-learn tensorboard
+pip install onnx onnxruntime onnx-simplifier
+```
+
+2. 项目克隆
+
+```shell
+git clone https://github.com/lucastabelini/LaneATT.git
+```
+
+3. 预训练权重下载
+
+```shell
+gdown "https://drive.google.com/uc?id=1R638ou1AMncTCRvrkQY6I-11CPwZy23T" # main experiments on TuSimple, CULane and LLAMAS (1.3 GB)
+unzip laneatt_experiments.zip
+```
+
+4. 导出 onnx 模型，在 laneatt-main 新建导出文件 `export.py` 内容如下：
+
+```python
+import torch
+from lib.models.laneatt import LaneATT
+
+class LaneATTONNX(torch.nn.Module):
+    def __init__(self, model):
+        super(LaneATTONNX, self).__init__()
+        # Params
+        self.fmap_h = model.fmap_h  # 11
+        self.fmap_w = model.fmap_w  # 20
+        self.anchor_feat_channels = model.anchor_feat_channels  # 64
+        self.anchors = model.anchors
+        self.cut_xs = model.cut_xs
+        self.cut_ys = model.cut_ys
+        self.cut_zs = model.cut_zs
+        self.invalid_mask = model.invalid_mask
+        # Layers
+        self.feature_extractor = model.feature_extractor
+        self.conv1 = model.conv1
+        self.cls_layer = model.cls_layer
+        self.reg_layer = model.reg_layer
+        self.attention_layer = model.attention_layer
+
+        # Exporting the operator eye to ONNX opset version 11 is not supported
+        attention_matrix = torch.eye(1000)
+        self.non_diag_inds = torch.nonzero(attention_matrix == 0., as_tuple=False)
+        self.non_diag_inds = self.non_diag_inds[:, 1] + 1000 * self.non_diag_inds[:, 0]  # 999000
+
+        self.anchor_parts_1 = self.anchors[:, 2:4]
+        self.anchor_parts_2 = self.anchors[:, 4:]
+
+    def forward(self, x):
+        batch_features = self.feature_extractor(x)
+        batch_features = self.conv1(batch_features)
+        # batch_anchor_features = self.cut_anchor_features(batch_features)
+        # batchx15360
+        batch_anchor_features = batch_features.reshape(-1, int(batch_features.numel()))
+        # h, w = batch_features.shape[2:4]  # 12, 20
+        indices = self.cut_xs + 20 * self.cut_ys + 12 * 20 * self.cut_zs        
+        batch_anchor_features = batch_anchor_features[:, indices].\
+            view(-1, 1000, self.anchor_feat_channels, self.fmap_h, 1)        
+        # batch_anchor_features[self.invalid_mask] = 0
+        batch_anchor_features = batch_anchor_features * torch.logical_not(self.invalid_mask)
+
+        # Join proposals from all images into a single proposals features batch
+        # batchx1000x704
+        batch_anchor_features = batch_anchor_features.view(-1, 1000, self.anchor_feat_channels * self.fmap_h)
+
+        # Add attention features
+        softmax = torch.nn.Softmax(dim=2)
+        # batchx1000x999
+        scores = self.attention_layer(batch_anchor_features)
+        attention = softmax(scores)
+        # bs, _, _ = scores.shape
+        bs, _, _ =scores.shape
+        attention_matrix = torch.zeros(bs, 1000 * 1000, device=x.device)
+        attention_matrix[:, self.non_diag_inds] = attention.reshape(-1, int(attention.numel()))
+        attention_matrix = attention_matrix.view(-1, 1000, 1000)
+        attention_features = torch.matmul(torch.transpose(batch_anchor_features, 1, 2),
+                                          torch.transpose(attention_matrix, 1, 2)).transpose(1, 2)
+        batch_anchor_features = torch.cat((attention_features, batch_anchor_features), dim=2)
+
+        # Predict
+        cls_logits = self.cls_layer(batch_anchor_features)
+        reg = self.reg_layer(batch_anchor_features)
+
+        anchor_expanded_1 = self.anchor_parts_1.repeat(reg.shape[0], 1, 1)
+        anchor_expanded_2 = self.anchor_parts_2.repeat(reg.shape[0], 1, 1)  
+
+        # Add offsets to anchors (1000, 2+2+73)
+        reg_proposals = torch.cat([softmax(cls_logits), anchor_expanded_1, anchor_expanded_2 + reg], dim=2)
+
+        return reg_proposals
+
+def export_onnx(onnx_file_path):
+    # e.g. laneatt_r18_culane
+    backbone_name = 'resnet18'
+    checkpoint_file_path = 'experiments/laneatt_r18_culane/models/model_0015.pt'
+    anchors_freq_path = 'data/culane_anchors_freq.pt'
+
+    # Load specified checkpoint
+    model = LaneATT(backbone=backbone_name, anchors_freq_path=anchors_freq_path, topk_anchors=1000)
+    checkpoint = torch.load(checkpoint_file_path)
+    model.load_state_dict(checkpoint['model'])
+    model.eval()
+
+    # Export to ONNX
+    onnx_model = LaneATTONNX(model)
+    
+    dummy_input = torch.randn(1, 3, 360, 640)
+    dynamic_batch = {'images': {0: 'batch'}, 'output': {0: 'batch'}}
+    torch.onnx.export(
+        onnx_model, 
+        dummy_input, 
+        onnx_file_path, 
+        input_names=["images"], 
+        output_names=["output"],
+        dynamic_axes=dynamic_batch
+    )
+
+    import onnx
+    model_onnx = onnx.load(onnx_file_path)
+
+    # Simplify
+    try:
+        import onnxsim
+
+        print(f"simplifying with onnxsim {onnxsim.__version__}...")
+        model_onnx, check = onnxsim.simplify(model_onnx)
+        assert check, "Simplified ONNX model could not be validated"
+    except Exception as e:
+        print(f"simplifier failure: {e}")
+
+    onnx.save(model_onnx, "laneatt.sim.onnx")
+    print(f"simplify done. onnx model save in laneatt.sim.onnx")   
+
+if __name__ == '__main__':
+    export_onnx('./laneatt.onnx')
+```
+
+```shell
+cd laneatt-main
+conda activate laneatt
+python export.py
+```
+
+5. engine 生成
+
+- **方案一**：利用 **TRT::compile** 接口，ScatterND 算子解析问题可以通过插件或者替换 onnxparser 解析器解决
+- **方案二**：利用 **trtexec** 工具生成 engine（**recommend**）
+
+```shell
+cd tensorRT_Pro-YOLOv8/workspace
+bash lane_build.sh
 ```
 
 </details>

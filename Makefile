@@ -134,6 +134,9 @@ rtmo : workspace/pro
 ppocr : workspace/pro
 	@cd workspace && ./pro ppocr
 
+laneatt : workspace/pro
+	@cd workspace && ./pro laneatt
+
 test_yolo_map : workspace/pro
 	@cd workspace && ./pro test_yolo_map
 
