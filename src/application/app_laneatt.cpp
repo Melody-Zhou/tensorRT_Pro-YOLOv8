@@ -226,4 +226,5 @@ int app_laneatt(){
     test(TRT::Mode::FP16, "laneatt.sim");
     // test_single_image();
     // test_video();
+    return 0;
 }
