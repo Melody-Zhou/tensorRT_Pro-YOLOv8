@@ -48,6 +48,11 @@ namespace CUDAKernel{
 		const Norm& norm,
 		cudaStream_t stream);
 
+    void cut_resize_bilinear_and_normalize(
+        uint8_t* src, int src_line_size, int src_width, int src_height, float* dst, int dst_width, int dst_height, int cut_height,
+        const Norm& norm,
+        cudaStream_t stream);
+
     void warp_affine_bilinear_and_normalize_plane(
         uint8_t* src, int src_line_size, int src_width, int src_height, 
         float* dst  , int dst_width, int dst_height,

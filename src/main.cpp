@@ -14,6 +14,7 @@ int app_rtdetr();
 int app_rtmo();
 int app_ppocr();
 int app_laneatt();
+int app_clrnet();
 int test_yolo_map();
 
 int main(int argc, char** argv){
@@ -43,6 +44,8 @@ int main(int argc, char** argv){
         app_ppocr();
     }else if(strcmp(method, "laneatt") == 0){
         app_laneatt();
+    }else if(strcmp(method, "clrnet") == 0){
+        app_clrnet();
     }else if(strcmp(method, "test_yolo_map") == 0){
         test_yolo_map();
     }else{

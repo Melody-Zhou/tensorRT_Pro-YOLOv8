@@ -3,7 +3,7 @@
 
 该仓库基于 [shouxieai/tensorRT_Pro](https://github.com/shouxieai/tensorRT_Pro)，并进行了调整以支持 YOLOv8 的各项任务。
 
-* 目前已支持 YOLOv8、YOLOv8-Cls、YOLOv8-Seg、YOLOv8-OBB、YOLOv8-Pose、RT-DETR、ByteTrack、YOLOv9、YOLOv10、RTMO、PP-OCRv4、LaneATT 高性能推理！！！🚀🚀🚀
+* 目前已支持 YOLOv8、YOLOv8-Cls、YOLOv8-Seg、YOLOv8-OBB、YOLOv8-Pose、RT-DETR、ByteTrack、YOLOv9、YOLOv10、RTMO、PP-OCRv4、LaneATT、CLRNet 高性能推理！！！🚀🚀🚀
 * 基于 tensorRT8.x，C++ 高级接口，C++ 部署，服务器/嵌入式使用
 
 <div align=center><img src="./assets/output.jpg" width="50%" height="50%"></div>
@@ -25,8 +25,12 @@
 - 🔥 [PaddleOCR-PP-OCRv4推理详解及部署实现（下）](https://blog.csdn.net/qq_40672115/article/details/140648937)
 - 🔥 [LaneATT推理详解及部署实现（上）](https://blog.csdn.net/qq_40672115/article/details/140891544)
 - 🔥 [LaneATT推理详解及部署实现（下）](https://blog.csdn.net/qq_40672115/article/details/140909528)
+- 🔥 [CLRNet推理详解及部署实现（上）](https://blog.csdn.net/qq_40672115/article/details/141090952)
+- 🔥 [CLRNet推理详解及部署实现（下）](https://blog.csdn.net/qq_40672115/article/details/141107365)
 
 ## Top News
+- **2024/8/11**
+  - CLRNet 支持
 - **2024/8/4**
   - LaneATT 支持
   - 提供测试视频下载（[Baidu Drive](https://pan.baidu.com/s/1g-DvhZSIbXhEqp4iiFANTQ?pwd=lane )）
@@ -1427,6 +1431,195 @@ python export.py
 5. engine 生成
 
 - **方案一**：利用 **TRT::compile** 接口，ScatterND 算子解析问题可以通过插件或者替换 onnxparser 解析器解决
+- **方案二**：利用 **trtexec** 工具生成 engine（**recommend**）
+
+```shell
+cd tensorRT_Pro-YOLOv8/workspace
+bash lane_build.sh
+```
+
+</details>
+
+<details>
+<summary>CLRNet支持</summary>
+
+**1.** 前置条件
+
+- **tensorRT >= 8.6**
+
+**2.** 导出环境搭建
+
+```shell
+conda create -n clrnet python=3.9
+conda activate clrnet
+pip install torch==2.0.1 torchvision==0.15.2 torchaudio==2.0.2
+pip install pandas addict scikit-learn opencv-python pytorch_warmup scikit-image tqdm p_tqdm
+pip install imgaug yapf timm pathspec pthflops
+pip install numpy==1.26.4 mmcv==1.2.5 albumentations==0.4.6 ujson==1.35 Shapely==2.0.5
+pip install onnx onnx-simplifier onnxruntime
+```
+
+**3.** 项目克隆
+
+```shell
+git clone https://github.com/Turoad/CLRNet.git
+```
+
+**4.** 预训练权重下载
+
+- 下载链接（[Baidu Drive](https://pan.baidu.com/s/1rqXG6VXvzNeI-4Jl_vwKJQ?pwd=lane)）
+
+**5.** 导出 onnx 模型，在 clrnet-main 新建导出文件 `export.py` 内容如下：
+
+```python
+import math
+import torch
+import torch.nn.functional as F
+from clrnet.utils.config import Config
+from mmcv.parallel import MMDataParallel
+from clrnet.models.registry import build_net
+
+class CLRNetONNX(torch.nn.Module):
+    def __init__(self, model):
+        super(CLRNetONNX, self).__init__()
+        self.backbone = model.backbone
+        self.neck     = model.neck
+        self.head     = model.heads
+
+    def forward(self, x):
+        x = self.backbone(x)
+        x = self.neck(x)
+        batch_features = list(x[len(x) - self.head.refine_layers:])
+        # 1x64x10x25+1x64x20x50+1x64x40x100
+        batch_features.reverse()
+        batch_size = batch_features[-1].shape[0]
+
+        # 1x192x78
+        priors = self.head.priors.repeat(batch_size, 1, 1)
+        # 1x192x36
+        priors_on_featmap = self.head.priors_on_featmap.repeat(batch_size, 1, 1)
+        
+        prediction_lists = []
+        prior_features_stages = []
+        for stage in range(self.head.refine_layers):
+            # 1. anchor ROI pooling
+            num_priors = int(priors_on_featmap.shape[1])
+            prior_xs = torch.flip(priors_on_featmap, dims=[2])
+            batch_prior_features = self.head.pool_prior_features(
+                batch_features[stage], num_priors, prior_xs)
+            prior_features_stages.append(batch_prior_features)
+
+            # 2. ROI gather
+            fc_features = self.head.roi_gather(prior_features_stages, 
+                                               batch_features[stage], stage)
+            
+            # 3. cls and reg head           
+            # fc_features = fc_features.view(num_priors, batch_size, -1).reshape(batch_size * num_priors, self.head.fc_hidden_dim)
+            fc_features = fc_features.view(num_priors, -1, 64).reshape(-1, self.head.fc_hidden_dim)
+            
+            cls_features = fc_features.clone()
+            reg_features = fc_features.clone()
+            for cls_layer in self.head.cls_modules:
+                cls_features = cls_layer(cls_features)
+            for reg_layer in self.head.reg_modules:
+                reg_features = reg_layer(reg_features)
+            
+            cls_logits = self.head.cls_layers(cls_features)
+            reg = self.head.reg_layers(reg_features)
+
+            # cls_logits = cls_logits.reshape(batch_size, -1, cls_logits.shape[1]) # (B, num_priors, 2)
+            cls_logits = cls_logits.reshape(-1, 192, 2) # (B, num_priors, 2)
+            # add softmax
+            softmax = torch.nn.Softmax(dim=2)
+            cls_logits = softmax(cls_logits)
+            # reg = reg.reshape(batch_size, -1, reg.shape[1])
+            reg = reg.reshape(-1, 192, 76)
+            
+            predictions = priors.clone()
+            predictions[:, :, :2] = cls_logits
+            predictions[:, :, 2:5] += reg[:, :, :3]
+            # add n_strips * length
+            # predictions[:, :, 5] = reg[:, :, 3] # length
+            predictions[:, :, 5] = reg[:, :, 3] * self.head.n_strips # length
+            
+            def tran_tensor(t):
+                return t.unsqueeze(2).clone().repeat(1, 1, self.head.n_offsets)
+            
+            batch_size = reg.shape[0]
+            predictions[..., 6:] = (
+                tran_tensor(predictions[..., 3]) * (self.head.img_w - 1) +
+                ((1 - self.head.prior_ys.repeat(batch_size, num_priors, 1) -
+                  tran_tensor(predictions[..., 2])) * self.head.img_h /
+                 torch.tan(tran_tensor(predictions[..., 4]) * math.pi + 1e-5))) / (self.head.img_w - 1)
+
+            prediction_lines = predictions.clone()
+            predictions[..., 6:] += reg[..., 4:]
+
+            prediction_lists.append(predictions)
+
+            if stage != self.head.refine_layers - 1:
+                priors = prediction_lines.detach().clone()
+                priors_on_featmap = priors[..., 6 + self.head.sample_x_indexs]
+
+        return prediction_lists[-1]            
+    
+def export_onnx(onnx_file_path):
+    # e.g. clrnet_culane_r18
+    cfg = Config.fromfile("configs/clrnet/clr_resnet18_culane.py")
+    checkpoint_file_path = "culane_r18.pth"
+    # load checkpoint
+    net = build_net(cfg)
+    net = MMDataParallel(net, device_ids=range(1)).cuda()
+    pretrained_model = torch.load(checkpoint_file_path)
+    net.load_state_dict(pretrained_model['net'], strict=False)
+    net.eval()
+    model = net.to("cpu")
+
+    onnx_model = CLRNetONNX(model.module)
+    # Export to ONNX
+    dummy_input = torch.randn(1, 3 ,320, 800)
+    dynamic_batch = {'images': {0: 'batch'}, 'output': {0: 'batch'}}
+    torch.onnx.export(
+        onnx_model,
+        dummy_input,
+        onnx_file_path,
+        input_names=["images"],
+        output_names=["output"],
+        opset_version=17,
+        dynamic_axes=dynamic_batch
+    )
+    print(f"finished export onnx model")
+
+    import onnx
+    model_onnx = onnx.load(onnx_file_path)
+    onnx.checker.check_model(model_onnx)    # check onnx model
+
+    # Simplify
+    try:
+        import onnxsim
+
+        print(f"simplifying with onnxsim {onnxsim.__version__}...")
+        model_onnx, check = onnxsim.simplify(model_onnx)
+        assert check, "Simplified ONNX model could not be validated"
+    except Exception as e:
+        print(f"simplifier failure: {e}")
+
+    onnx.save(model_onnx, "clrnet.sim.onnx")
+    print(f"simplify done. onnx model save in clrnet.sim.onnx")
+    
+if __name__ == "__main__":
+    export_onnx("./clrnet.onnx")
+```
+
+```shell
+cd clrnet-main
+conda activate clrnet
+python export.py
+```
+
+**5.** engine 生成
+
+- **方案一**：利用 **TRT::compile** 接口，GridSample 和 LayerNormalization 算子解析问题可以通过插件或者替换 onnxparser 解析器解决
 - **方案二**：利用 **trtexec** 工具生成 engine（**recommend**）
 
 ```shell

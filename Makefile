@@ -137,6 +137,9 @@ ppocr : workspace/pro
 laneatt : workspace/pro
 	@cd workspace && ./pro laneatt
 
+clrnet : workspace/pro
+	@cd workspace && ./pro clrnet
+
 test_yolo_map : workspace/pro
 	@cd workspace && ./pro test_yolo_map
 
