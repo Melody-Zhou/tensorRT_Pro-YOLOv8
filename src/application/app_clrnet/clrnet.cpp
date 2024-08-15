@@ -16,7 +16,7 @@ namespace CLRNet{
     );
 
     void nms_kernel_invoker(
-        float* parray, float nms_threshold, int max_lanes, 
+        float* parray, float nms_threshold, int max_lanes,
         int input_width, cudaStream_t stream
     );
 
@@ -118,11 +118,11 @@ namespace CLRNet{
             auto input         = engine->tensor("images");
             auto output        = engine->tensor("output");
 
-            input_width_      = input->size(3);
-            input_height_     = input->size(2);
-            tensor_allocator_ = make_shared<MonopolyAllocator<TRT::Tensor>>(max_batch_size * 2);
-            stream_           = engine->get_stream();
-            gpu_              = gpuid;
+            input_width_       = input->size(3);
+            input_height_      = input->size(2);
+            tensor_allocator_  = make_shared<MonopolyAllocator<TRT::Tensor>>(max_batch_size * 2);
+            stream_            = engine->get_stream();
+            gpu_               = gpuid;
             result.set_value(true);
 
             input->resize_single_dim(0, max_batch_size).to_gpu();
@@ -152,7 +152,7 @@ namespace CLRNet{
                 }
 
                 engine->forward(false);
-                output_array_device.to_gpu(false); 
+                output_array_device.to_gpu(false);
                 for(int ibatch = 0; ibatch < infer_batch_size; ++ibatch){
 
                     auto& job                 = fetch_jobs[ibatch];
@@ -160,7 +160,7 @@ namespace CLRNet{
                     float* output_array_ptr   = output_array_device.gpu<float>(ibatch);
                     checkCudaRuntime(cudaMemsetAsync(output_array_ptr, 0, sizeof(int), stream_));
                     decode_kernel_invoker(image_based_output, output->size(1), confidence_threshold_, output_array_ptr, stream_);
-                    
+
                     if(nms_method_ == NMSMethod::FastGPU){
                         nms_kernel_invoker(output_array_ptr, nms_threshold_, max_lanes_, input_width_, stream_);
                     }
@@ -173,13 +173,12 @@ namespace CLRNet{
                     auto& job = fetch_jobs[ibatch];
                     auto& image_based_lanes = job.output;
                     image_based_lanes.reserve(count);
-
                     for(int i = 0; i < count; ++i){
                         float* plane = parray + 1 + i * (NUM_LANE_ELEMENT + 1);
                         int keepflag = plane[6];
                         if(keepflag == 0)
                             continue;
-
+                        
                         Lane lane;
                         lane.unknow  = plane[0];
                         lane.score   = plane[1];
@@ -187,6 +186,7 @@ namespace CLRNet{
                         lane.start_x = plane[3];
                         lane.theta   = plane[4];
                         lane.length  = plane[5];
+
                         for(int i = 0; i < N_OFFSETS; ++i){
                             lane.lane_xs[i] = plane[i + 7];
                         }
@@ -196,6 +196,7 @@ namespace CLRNet{
                     std::sort(image_based_lanes.begin(), image_based_lanes.end(), [](LaneArray::const_reference a, LaneArray::const_reference b){
                         return a.score > b.score;
                     });
+
                     if(nms_method_ == NMSMethod::CPU){
                         image_based_lanes = cpu_nms(image_based_lanes, nms_threshold_, nms_topk_, input_width_);
                     }else if(nms_method_ == NMSMethod::FastGPU){
@@ -212,8 +213,8 @@ namespace CLRNet{
                             lane.points.push_back(cv::Point2f(lane.lane_xs[i], anchor_ys_[i]));
                         }
                     }
-                    job.pro->set_value(image_based_lanes);                                        
-                }
+                    job.pro->set_value(image_based_lanes);
+                }        
                 fetch_jobs.clear();
             }
             stream_ = nullptr;
@@ -312,7 +313,7 @@ namespace CLRNet{
         CUDAKernel::Norm normalize_;
         vector<float> anchor_ys_;  
 
-    };
+    };    
 
     shared_ptr<Infer> create_infer(
         const string& engine_file, int gpuid, float confidence_threshold, 
@@ -352,5 +353,5 @@ namespace CLRNet{
             normalize,                   stream
         );
         tensor->synchronize();
-    }
+    }    
 };
