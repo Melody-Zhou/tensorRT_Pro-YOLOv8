@@ -140,6 +140,9 @@ laneatt : workspace/pro
 clrnet : workspace/pro
 	@cd workspace && ./pro clrnet
 
+clrernet : workspace/pro
+	@cd workspace && ./pro clrernet
+
 test_yolo_map : workspace/pro
 	@cd workspace && ./pro test_yolo_map
 

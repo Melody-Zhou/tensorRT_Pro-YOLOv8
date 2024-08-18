@@ -170,6 +170,13 @@ add_custom_target(
 )
 
 add_custom_target(
+    clrernet
+    DEPENDS pro
+    WORKING_DIRECTORY ${PROJECT_SOURCE_DIR}/workspace
+    COMMAND ./pro clrernet
+)
+
+add_custom_target(
     test_yolo_map
     DEPENDS pro
     WORKING_DIRECTORY ${PROJECT_SOURCE_DIR}/workspace
