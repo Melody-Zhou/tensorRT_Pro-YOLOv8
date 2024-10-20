@@ -188,7 +188,7 @@ namespace Yolo{
         
         auto grid = CUDATools::grid_dims(num_bboxes);
         auto block = CUDATools::block_dims(num_bboxes);
-        if(type == Type::V6 || type == Type::V8 || type == Type::V9){
+        if(type == Type::V6 || type == Type::V8 || type == Type::V9 || type == Type::V11){
             checkCudaKernel(decode_kernel_v8<<<grid, block, 0, stream>>>(predict, num_bboxes, num_classes, confidence_threshold, invert_affine_matrix, parray, max_objects));            
         }else if(type == Type::V10){
             checkCudaKernel(decode_kernel_v10<<<grid, block, 0, stream>>>(predict, num_bboxes, confidence_threshold, invert_affine_matrix, parray, max_objects))

@@ -247,6 +247,7 @@ void perf() {
 int app_yolo_obb(){
  
     test(TRT::Mode::FP32, "yolov8s-obb");
+    // test(TRT::Mode::FP32, "yolo11s-obb");
     // test_single_image();
     // perf();
 

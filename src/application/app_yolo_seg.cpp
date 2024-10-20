@@ -327,6 +327,7 @@ static void test_single_image(){
 int app_yolo_seg(){
  
     test(TRT::Mode::FP32, "yolov8s-seg");
+    // test(TRT::Mode::FP32, "yolo11s-seg");
     // test_single_image();
     // test_video();
     return 0;

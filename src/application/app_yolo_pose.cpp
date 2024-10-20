@@ -290,6 +290,7 @@ static void test_single_image(){
 int app_yolo_pose(){
  
     test(TRT::Mode::FP32, "yolov8s-pose");
+    // test(TRT::Mode::FP32, "yolo11s-pose");
     // test_single_image();
     // test_video();
     return 0;
