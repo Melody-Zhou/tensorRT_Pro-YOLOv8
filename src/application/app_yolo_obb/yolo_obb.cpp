@@ -58,7 +58,7 @@ namespace YoloOBB{
 
         float a_val = a * cos_r * cos_r + b * sin_r * sin_r;
         float b_val = a * sin_r * sin_r + b * cos_r * cos_r;
-        float c_val = (a - b) * sin_r * sin_r;
+        float c_val = (a - b) * sin_r * cos_r;
 
         return std::make_tuple(a_val, b_val, c_val);
     }
