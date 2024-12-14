@@ -16,6 +16,7 @@ int app_ppocr();
 int app_laneatt();
 int app_clrnet();
 int app_clrernet();
+int app_depth_anything();
 int test_yolo_map();
 
 int main(int argc, char** argv){
@@ -49,6 +50,8 @@ int main(int argc, char** argv){
         app_clrnet();
     }else if(strcmp(method, "clrernet") == 0){
         app_clrernet();
+    }else if(strcmp(method, "depth_anything") == 0){
+        app_depth_anything();
     }else if(strcmp(method, "test_yolo_map") == 0){
         test_yolo_map();
     }else{

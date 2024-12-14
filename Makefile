@@ -143,6 +143,9 @@ clrnet : workspace/pro
 clrernet : workspace/pro
 	@cd workspace && ./pro clrernet
 
+depth_anything : workspace/pro
+	@cd workspace && ./pro depth_anything
+
 test_yolo_map : workspace/pro
 	@cd workspace && ./pro test_yolo_map
 

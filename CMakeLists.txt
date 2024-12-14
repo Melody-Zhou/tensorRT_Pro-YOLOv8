@@ -177,6 +177,13 @@ add_custom_target(
 )
 
 add_custom_target(
+    depth_anything
+    DEPENDS pro
+    WORKING_DIRECTORY ${PROJECT_SOURCE_DIR}/workspace
+    COMMAND ./pro depth_anything
+)
+
+add_custom_target(
     test_yolo_map
     DEPENDS pro
     WORKING_DIRECTORY ${PROJECT_SOURCE_DIR}/workspace
