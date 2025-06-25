@@ -3,7 +3,7 @@
 
 该仓库基于 [shouxieai/tensorRT_Pro](https://github.com/shouxieai/tensorRT_Pro)，并进行了调整以支持 YOLOv8 的各项任务。
 
-* 目前已支持 YOLOv8、YOLOv8-Cls、YOLOv8-Seg、YOLOv8-OBB、YOLOv8-Pose、RT-DETR、ByteTrack、YOLOv9、YOLOv10、RTMO、PP-OCRv4、LaneATT、CLRNet、CLRerNet、YOLO11、Depth-Anything、YOLOv12 高性能推理！！！🚀🚀🚀
+* 目前已支持 YOLOv8、YOLOv8-Cls、YOLOv8-Seg、YOLOv8-OBB、YOLOv8-Pose、RT-DETR、ByteTrack、YOLOv9、YOLOv10、RTMO、PP-OCRv4、LaneATT、CLRNet、CLRerNet、YOLO11、Depth-Anything、YOLOv12、YOLOv13 高性能推理！！！🚀🚀🚀
 * 基于 tensorRT8.x，C++ 高级接口，C++ 部署，服务器/嵌入式使用
 
 <div align=center><img src="./assets/output.jpg" width="50%" height="50%"></div>
@@ -35,6 +35,8 @@
 - 🔥 [YOLOv12推理详解及部署实现](https://blog.csdn.net/qq_40672115/article/details/145738637)
 
 ## Top News
+- **2025/6/25**
+  - YOLOv13 支持
 - **2025/2/19**
   - YOLOv12 支持
 - **2024/12/14**
@@ -2477,7 +2479,7 @@ if dynamic:
         dynamic["output0"] = {0: "batch"}  # shape(1, 84, 8400)
 ```
 
-1. 导出 onnx 模型，在 yolov12 新建导出文件 `export.py` 内容如下：
+3. 导出 onnx 模型，在 yolov12 新建导出文件 `export.py` 内容如下：
 
 ```python
 from ultralytics import YOLO
@@ -2496,6 +2498,81 @@ python export.py
 
 ```shell
 cp yolov12/yolov12s.onnx tensorRT_Pro-YOLOv8/workspace
+cd tensorRT_Pro-YOLOv8
+make yolo -j64
+```
+
+</details>
+
+<details>
+<summary>YOLOv13支持</summary>
+
+1. 环境搭建
+
+```shell
+git clone https://github.com/iMoonLab/yolov13.git
+cd yolov13
+wget https://github.com/Dao-AILab/flash-attention/releases/download/v2.7.3/flash_attn-2.7.3+cu11torch2.2cxx11abiFALSE-cp311-cp311-linux_x86_64.whl
+conda create -n yolov13 python=3.11
+conda activate yolov13
+pip install -r requirements.txt
+pip install -e .
+```
+
+2. 修改代码，保证动态 batch
+
+```python
+# ========== head.py ==========
+
+# ultralytics/nn/modules/head.py第74行，forward函数
+# return y if self.export else (y, x)
+# 修改为：
+
+return y.permute(0, 2, 1) if self.export else (y, x)
+
+# ========== exporter.py ==========
+
+# ultralytics/engine/exporter.py第499行
+# output_names = ["output0", "output1"] if isinstance(self.model, SegmentationModel) else ["output0"]
+# dynamic = self.args.dynamic
+# if dynamic:
+#     dynamic = {"images": {0: "batch", 2: "height", 3: "width"}}  # shape(1,3,640,640)
+#     if isinstance(self.model, SegmentationModel):
+#         dynamic["output0"] = {0: "batch", 2: "anchors"}  # shape(1, 116, 8400)
+#         dynamic["output1"] = {0: "batch", 2: "mask_height", 3: "mask_width"}  # shape(1,32,160,160)
+#     elif isinstance(self.model, DetectionModel):
+#         dynamic["output0"] = {0: "batch", 2: "anchors"}  # shape(1, 84, 8400)
+# 修改为：
+
+output_names = ["output0", "output1"] if isinstance(self.model, SegmentationModel) else ["output"]
+dynamic = self.args.dynamic
+if dynamic:
+    dynamic = {"images": {0: "batch"}}  # shape(1,3,640,640)
+    if isinstance(self.model, SegmentationModel):
+        dynamic["output0"] = {0: "batch", 2: "anchors"}  # shape(1, 116, 8400)
+        dynamic["output1"] = {0: "batch", 2: "mask_height", 3: "mask_width"}  # shape(1,32,160,160)
+    elif isinstance(self.model, DetectionModel):
+        dynamic["output0"] = {0: "batch"}  # shape(1, 84, 8400)
+```
+
+3. 导出 onnx 模型，在 yolov13 新建导出文件 `export.py` 内容如下：
+
+```python
+from ultralytics import YOLO
+model = YOLO('yolov13s.pt')
+model.export(format="onnx", dynamic=True)
+```
+
+```shell
+cd yolov13
+conda activate yolov13
+python export.py
+```
+
+4. 复制模型并执行
+
+```shell
+cp yolov13/yolov13s.onnx tensorRT_Pro-YOLOv8/workspace
 cd tensorRT_Pro-YOLOv8
 make yolo -j64
 ```
