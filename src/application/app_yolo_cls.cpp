@@ -183,6 +183,7 @@ int app_yolo_cls(){
  
     test(TRT::Mode::FP32, "yolov8s-cls");
     // test(TRT::Mode::FP32, "yolo11s-cls");
+    // test(TRT::Mode::FP32, "yolo26s-cls");
     // test_single_image();
     // test_crop_resize();
     return 0;
