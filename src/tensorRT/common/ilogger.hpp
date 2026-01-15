@@ -7,7 +7,7 @@
 #include <vector>
 #include <tuple>
 #include <time.h>
-
+#include <cstdint>
 
 #if defined(_WIN32)
 #	define U_OS_WINDOWS
