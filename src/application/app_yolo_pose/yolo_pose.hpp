@@ -13,14 +13,21 @@ namespace YoloPose{
     using namespace std;
     const int NUM_KEYPOINTS = 17;   // COCO Keypoins
 
+    enum class Type : int{
+        V8  = 0,
+        V11 = 1,
+        YOLO26 = 2
+    };
+
     struct Box{
         float left, top, right, bottom, confidence;
+        int class_label;
         vector<cv::Point3f> keypoints;
 
         Box() = default;
         
-        Box(float left, float top, float right, float bottom, float confidence)
-        :left(left), top(top), right(right), bottom(bottom), confidence(confidence){
+        Box(float left, float top, float right, float bottom, float confidence, int class_label)
+        :left(left), top(top), right(right), bottom(bottom), confidence(confidence), class_label(class_label){
             keypoints.reserve(NUM_KEYPOINTS);
         }
     };
@@ -40,11 +47,12 @@ namespace YoloPose{
     };
 
     shared_ptr<Infer> create_infer(
-        const string& engine_file, int gpuid,
+        const string& engine_file, Type type, int gpuid,
         float confidence_threshold=0.25f, float nms_threshold=0.5f,
         NMSMethod nms_method = NMSMethod::FastGPU, int max_objects = 1024,
         bool use_multi_preprocess_stream = false
     );
+    const char* type_name(Type type);
 
 }; // namespace YoloPose
 

@@ -15,10 +15,19 @@ namespace YoloPose{
     using namespace cv;
     using namespace std;
 
+    const char* type_name(Type type){
+        switch(type){
+        case Type::V8: return "YoloV8-Pose";
+        case Type::V11: return "YoloV11-Pose";
+        case Type::YOLO26: return "Yolo26-Pose";
+        default: return "Unknow";
+        }
+    }
+
     void decode_kernel_invoker(
         float* predict, int num_bboxes, float confidence_threshold, 
         float* invert_affine_matrix, float* parray,
-        int max_objects, cudaStream_t stream
+        int max_objects, cudaStream_t stream, Type type
     );
 
     void nms_kernel_invoker(
@@ -106,13 +115,14 @@ namespace YoloPose{
         }
 
         virtual bool startup(
-            const string& file, int gpuid, 
+            const string& file, Type type, int gpuid, 
             float confidence_threshold, float nms_threshold,
             NMSMethod nms_method, int max_objects,
             bool use_multi_preprocess_stream
         ){
             normalize_ = CUDAKernel::Norm::alpha_beta(1 / 255.0f, 0.0f, CUDAKernel::ChannelType::Invert);
             
+            type_ = type;
             use_multi_preprocess_stream_ = use_multi_preprocess_stream;
             confidence_threshold_ = confidence_threshold;
             nms_threshold_        = nms_threshold;
@@ -137,7 +147,7 @@ namespace YoloPose{
             engine->print();
             
             const int MAX_IMAGE_BBOX  = max_objects_;
-            const int NUM_BOX_ELEMENT = 6 + 3 * NUM_KEYPOINTS;      // left, top, right, bottom, confidence, keepflag, (x, y, conf) * 17
+            const int NUM_BOX_ELEMENT = 6 + 3 * NUM_KEYPOINTS;      // left, top, right, bottom, confidence, keepflag/label, (x, y, conf) * 17
             TRT::Tensor affin_matrix_device(TRT::DataType::Float);
             TRT::Tensor output_array_device(TRT::DataType::Float);
             int max_batch_size = engine->get_max_batch_size();
@@ -189,9 +199,9 @@ namespace YoloPose{
                     float* output_array_ptr   = output_array_device.gpu<float>(ibatch);
                     auto affine_matrix        = affin_matrix_device.gpu<float>(ibatch);
                     checkCudaRuntime(cudaMemsetAsync(output_array_ptr, 0, sizeof(int), stream_));
-                    decode_kernel_invoker(image_based_output, output->size(1), confidence_threshold_, affine_matrix, output_array_ptr, MAX_IMAGE_BBOX, stream_);
+                    decode_kernel_invoker(image_based_output, output->size(1), confidence_threshold_, affine_matrix, output_array_ptr, MAX_IMAGE_BBOX, stream_, type_);
 
-                    if(nms_method_ == NMSMethod::FastGPU){
+                    if(nms_method_ == NMSMethod::FastGPU && type_ != Type::YOLO26){
                         nms_kernel_invoker(output_array_ptr, nms_threshold_, MAX_IMAGE_BBOX, stream_);
                     }
                 }
@@ -203,18 +213,27 @@ namespace YoloPose{
                     auto& job     = fetch_jobs[ibatch];
                     auto& image_based_boxes   = job.output;
                     for(int i = 0; i < count; ++i){
-                        float* pbox  = parray + 1 + i * NUM_BOX_ELEMENT;
-                        int keepflag = pbox[5];
-                        if(keepflag == 1){
-                            Box box(pbox[0], pbox[1], pbox[2], pbox[3], pbox[4]);
-                            float* pkeypoint_start = pbox + 6;
-                            float* pkeypoint_end   = pkeypoint_start + 3 * NUM_KEYPOINTS;
-                            box.keypoints.insert(box.keypoints.end(), (Point3f*)pkeypoint_start, (Point3f*)pkeypoint_end);
-                            image_based_boxes.emplace_back(box);
+                        float* pbox = parray + 1 + i * NUM_BOX_ELEMENT;
+                        bool keep = true;
+                        int label = 0;
+                        if(type_ == Type::YOLO26){
+                            label = (int)pbox[5];
+                        }else{
+                            int keepflag = (int)pbox[5];
+                            keep = (keepflag == 1);
+                            label = 0;
                         }
+
+                        if(!keep) continue;
+
+                        Box box(pbox[0], pbox[1], pbox[2], pbox[3], pbox[4], label);
+                        float* pkeypoint_start = pbox + 6;
+                        float* pkeypoint_end   = pkeypoint_start + 3 * NUM_KEYPOINTS;
+                        box.keypoints.insert(box.keypoints.end(), (Point3f*)pkeypoint_start, (Point3f*)pkeypoint_end);
+                        image_based_boxes.emplace_back(std::move(box));
                     }
 
-                    if(nms_method_ == NMSMethod::CPU){
+                    if(nms_method_ == NMSMethod::CPU && type_ != Type::YOLO26){
                         image_based_boxes = cpu_nms(image_based_boxes, nms_threshold_);
                     }
                     job.pro->set_value(image_based_boxes);
@@ -308,6 +327,7 @@ namespace YoloPose{
         }
 
     private:
+        Type type_;
         int input_width_            = 0;
         int input_height_           = 0;
         int gpu_                    = 0;
@@ -321,14 +341,14 @@ namespace YoloPose{
     };
 
     shared_ptr<Infer> create_infer(
-        const string& engine_file, int gpuid, 
+        const string& engine_file, Type type, int gpuid, 
         float confidence_threshold, float nms_threshold,
         NMSMethod nms_method, int max_objects,
         bool use_multi_preprocess_stream
     ){
         shared_ptr<InferImpl> instance(new InferImpl());
         if(!instance->startup(
-            engine_file, gpuid, confidence_threshold, 
+            engine_file, type, gpuid, confidence_threshold, 
             nms_threshold, nms_method, max_objects, use_multi_preprocess_stream)
         ){
             instance.reset();

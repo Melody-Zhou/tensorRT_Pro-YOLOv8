@@ -4,7 +4,7 @@
 
 namespace YoloPose{
     
-    const int NUM_BOX_ELEMENT = 6 + 3 * NUM_KEYPOINTS;      // left, top, right, bottom, confidence, keepflag, (x, y, conf) * 17
+    const int NUM_BOX_ELEMENT = 6 + 3 * NUM_KEYPOINTS;      // left, top, right, bottom, confidence, keepflag/label, (x, y, conf) * 17
     static __device__ void affine_project(float* matrix, float x, float y, float* ox, float* oy){
         *ox = matrix[0] * x + matrix[1] * y + matrix[2];
         *oy = matrix[3] * x + matrix[4] * y + matrix[5];
@@ -44,6 +44,50 @@ namespace YoloPose{
         *pout_item++ = bottom;
         *pout_item++ = confidence;
         *pout_item++ = 1; // 1 = keep, 0 = ignore
+
+        for(int i = 0; i < NUM_KEYPOINTS; ++i){
+            float keypoint_x          = *pitem++;
+            float keypoint_y          = *pitem++;
+            float keypoint_confidence = *pitem++;
+            
+            affine_project(invert_affine_matrix, keypoint_x, keypoint_y, &keypoint_x, &keypoint_y);
+
+            *pout_item++ = keypoint_x;
+            *pout_item++ = keypoint_y;
+            *pout_item++ = keypoint_confidence;  
+        }
+    }
+
+    static __global__ void decode_kernel_yolo26_Pose(float *predict, int num_bboxes, float confidence_threshold, float* invert_affine_matrix, float* parray, int MAX_IMAGE_BOXES){
+
+        int position = blockDim.x * blockIdx.x + threadIdx.x;
+        if(position >= num_bboxes) return;
+
+        // left, top, right, bottom, conf, lable, *keypoints = 57
+        float* pitem     = predict + (6 + 3 * NUM_KEYPOINTS) * position;
+        float confidence = *(pitem + 4);
+        float label      = *(pitem + 5);
+        if(confidence < confidence_threshold)
+            return;
+        
+        int index = atomicAdd(parray, 1);
+        if(index >= MAX_IMAGE_BOXES)
+            return;
+
+        float left   = *pitem++;
+        float top    = *pitem++;
+        float right  = *pitem++; 
+        float bottom = *pitem++;
+        affine_project(invert_affine_matrix, left,  top,    &left,  &top);
+        affine_project(invert_affine_matrix, right, bottom, &right, &bottom);
+
+        float* pout_item = parray + 1 + index * NUM_BOX_ELEMENT; 
+        *pout_item++ = left;
+        *pout_item++ = top;
+        *pout_item++ = right;
+        *pout_item++ = bottom;
+        *pout_item++ = *pitem++;
+        *pout_item++ = *pitem++;
 
         for(int i = 0; i < NUM_KEYPOINTS; ++i){
             float keypoint_x          = *pitem++;
@@ -107,11 +151,15 @@ namespace YoloPose{
         }
     } 
 
-    void decode_kernel_invoker(float* predict, int num_bboxes, float confidence_threshold, float* invert_affine_matrix, float* parray, int max_objects, cudaStream_t stream){
+    void decode_kernel_invoker(float* predict, int num_bboxes, float confidence_threshold, float* invert_affine_matrix, float* parray, int max_objects, cudaStream_t stream, Type type){
         
         auto grid = CUDATools::grid_dims(num_bboxes);
         auto block = CUDATools::block_dims(num_bboxes);
-        checkCudaKernel(decode_kernel_v8_Pose<<<grid, block, 0, stream>>>(predict, num_bboxes, confidence_threshold, invert_affine_matrix, parray, max_objects));
+        if(type == Type::V8 || type == Type::V11){
+            checkCudaKernel(decode_kernel_v8_Pose<<<grid, block, 0, stream>>>(predict, num_bboxes, confidence_threshold, invert_affine_matrix, parray, max_objects));
+        }else{
+            checkCudaKernel(decode_kernel_yolo26_Pose<<<grid, block, 0, stream>>>(predict, num_bboxes, confidence_threshold, invert_affine_matrix, parray, max_objects));
+        }
     }
 
     void nms_kernel_invoker(float* parray, float nms_threshold, int max_objects, cudaStream_t stream){
