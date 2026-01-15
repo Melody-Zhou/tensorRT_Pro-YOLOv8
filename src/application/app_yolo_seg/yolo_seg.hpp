@@ -14,28 +14,29 @@ namespace YoloSeg{
     using namespace std;
     using namespace ObjectDetector;
 
-    struct InstanceSegmentMap {
-    int width = 0, height = 0;      // width % 8 == 0
-    int left = 0, top = 0;          // 160x160 feature map
-    unsigned char *data = nullptr;  // is width * height memory
+    enum class Type: int{
+        V8  = 0,
+        V11 = 1,
+        YOLO26 = 2
+    };
 
-    InstanceSegmentMap(int width, int height);
-    virtual ~InstanceSegmentMap();
+    struct InstanceSegmentMap {
+        int width = 0, height = 0;      // width % 8 == 0
+        int left = 0, top = 0;          // 160x160 feature map
+        unsigned char *data = nullptr;  // is width * height memory
+
+        InstanceSegmentMap(int width, int height);
+        virtual ~InstanceSegmentMap();
     };
 
     struct Box {
-    float left, top, right, bottom, confidence;
-    int class_label;
-    std::shared_ptr<InstanceSegmentMap> seg;  // mask
+        float left, top, right, bottom, confidence;
+        int class_label;
+        std::shared_ptr<InstanceSegmentMap> seg;  // mask
 
-    Box() = default;
-    Box(float left, float top, float right, float bottom, float confidence, int class_label)
-        : left(left),
-            top(top),
-            right(right),
-            bottom(bottom),
-            confidence(confidence),
-            class_label(class_label) {}
+        Box() = default;
+        Box(float left, float top, float right, float bottom, float confidence, int class_label)
+            : left(left), top(top), right(right), bottom(bottom), confidence(confidence), class_label(class_label) {}
     };
     typedef std::vector<Box> BoxArray;
 
@@ -53,11 +54,12 @@ namespace YoloSeg{
     };
 
     shared_ptr<Infer> create_infer(
-        const string& engine_file, int gpuid,
+        const string& engine_file, Type type, int gpuid,
         float confidence_threshold=0.25f, float nms_threshold=0.5f,
         NMSMethod nms_method = NMSMethod::FastGPU, int max_objects = 1024,
         bool use_multi_preprocess_stream = false
     );
+    const char* type_name(Type type);
 
 }; // namespace YoloSeg
 

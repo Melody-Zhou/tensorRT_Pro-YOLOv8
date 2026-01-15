@@ -15,12 +15,21 @@ namespace YoloSeg{
     using namespace cv;
     using namespace std;
 
+    const char* type_name(Type type){
+        switch(type){
+            case Type::V8: return "YoloV8-Seg";
+            case Type::V11: return "YoloV11-Seg";
+            case Type::YOLO26: return "Yolo26-Seg";
+            default: return "Unknow";
+        }        
+    }
+
     void affine_project(float* matrix, float x, float y, float* ox, float* oy);
 
     void decode_kernel_invoker(
         float* predict, int num_bboxes, int num_classes, float confidence_threshold, 
         float* invert_affine_matrix, float* parray,
-        int max_objects, cudaStream_t stream
+        int max_objects, cudaStream_t stream, Type type
     );
 
     void nms_kernel_invoker(
@@ -129,13 +138,14 @@ namespace YoloSeg{
         }
 
         virtual bool startup(
-            const string& file, int gpuid, 
+            const string& file, Type type, int gpuid, 
             float confidence_threshold, float nms_threshold,
             NMSMethod nms_method, int max_objects,
             bool use_multi_preprocess_stream
         ){
             normalize_ = CUDAKernel::Norm::alpha_beta(1 / 255.0f, 0.0f, CUDAKernel::ChannelType::Invert);
 
+            type_ = type;
             use_multi_preprocess_stream_ = use_multi_preprocess_stream;
             confidence_threshold_ = confidence_threshold;
             nms_threshold_        = nms_threshold;
@@ -160,8 +170,8 @@ namespace YoloSeg{
             engine->print();
 
             const int MAX_IMAGE_BBOX  = max_objects_;
-            const int NUM_BOX_ELEMENT = 8;      // left, top, right, bottom, confidence, class,
-                                                // keepflag, row_index(output)
+            const int NUM_BOX_ELEMENT = (type_ == Type::YOLO26) ? 7 : 8;      // left, top, right, bottom, confidence, class,
+                                                                              // keepflag, row_index(output)
             TRT::Tensor affine_matrix_device(TRT::DataType::Float);
             TRT::Tensor output_boxarray_device(TRT::DataType::Float);    
             TRT::Tensor box_mask_output_memory(TRT::DataType::UInt8);
@@ -218,9 +228,9 @@ namespace YoloSeg{
                     float* output_array_ptr   = output_boxarray_device.gpu<float>(ibatch);
                     auto affine_matrix        = affine_matrix_device.gpu<float>(ibatch);
                     checkCudaRuntime(cudaMemsetAsync(output_array_ptr, 0, sizeof(int), stream_));
-                    decode_kernel_invoker(image_based_output, bbox_head_output->size(1), num_classes, confidence_threshold_, affine_matrix, output_array_ptr, MAX_IMAGE_BBOX, stream_);
+                    decode_kernel_invoker(image_based_output, bbox_head_output->size(1), num_classes, confidence_threshold_, affine_matrix, output_array_ptr, MAX_IMAGE_BBOX, stream_, type_);
 
-                    if(nms_method_ == NMSMethod::FastGPU){
+                    if(nms_method_ == NMSMethod::FastGPU && type_ != Type::YOLO26){
                         nms_kernel_invoker(output_array_ptr, nms_threshold_, MAX_IMAGE_BBOX, stream_);
                     }
                 }
@@ -233,13 +243,13 @@ namespace YoloSeg{
                     auto& image_based_boxes   = job.output;
                     for(int i = 0; i < count; ++i){
                         float* pbox  = parray + 1 + i * NUM_BOX_ELEMENT;
-                        int keepflag = pbox[6];
+                        int keepflag = (type_ == Type::YOLO26) ? 1 : pbox[6];
                         if(keepflag == 1){
 
                             Box result_object_box(pbox[0], pbox[1], pbox[2], pbox[3], pbox[4], pbox[5]);
                             // process mask
                             // reference: https://github.com/shouxieai/infer/blob/main/src/yolo.cu#L629
-                            int row_index = pbox[7];
+                            int row_index = (type_ == Type::YOLO26) ? pbox[6] : pbox[7];
                             int mask_dim  = mask_head_output->size(1);
 
                             float* mask_weights      = bbox_head_output->gpu<float>(ibatch) + row_index * bbox_head_output->size(2) + num_classes + 4;
@@ -274,7 +284,7 @@ namespace YoloSeg{
                             }
                         }
                     }
-                    if(nms_method_ == NMSMethod::CPU){
+                    if(nms_method_ == NMSMethod::CPU && type_ != Type::YOLO26){
                         image_based_boxes = cpu_nms(image_based_boxes, nms_threshold_);
                     }
                     checkCudaRuntime(cudaStreamSynchronize(stream_));
@@ -369,6 +379,7 @@ namespace YoloSeg{
         }
 
     private:
+        Type type_;
         int input_width_            = 0;
         int input_height_           = 0;
         int gpu_                    = 0;
@@ -382,14 +393,14 @@ namespace YoloSeg{
     };
 
     shared_ptr<Infer> create_infer(
-        const string& engine_file, int gpuid, 
+        const string& engine_file, Type type, int gpuid, 
         float confidence_threshold, float nms_threshold,
         NMSMethod nms_method, int max_objects,
         bool use_multi_preprocess_stream
     ){
         shared_ptr<InferImpl> instance(new InferImpl());
         if(!instance->startup(
-            engine_file, gpuid, confidence_threshold, 
+            engine_file, type, gpuid, confidence_threshold, 
             nms_threshold, nms_method, max_objects, use_multi_preprocess_stream)
         ){
             instance.reset();

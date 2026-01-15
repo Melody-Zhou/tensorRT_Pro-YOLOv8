@@ -82,10 +82,11 @@ static void draw_mask(cv::Mat& image, YoloSeg::Box& obj, cv::Scalar& color){
     result_masked.copyTo(image, mask_indices);
 }
 
-static void inference_and_performance(int deviceid, const string& engine_file, TRT::Mode mode, const string& model_name){
+static void inference_and_performance(int deviceid, const string& engine_file, TRT::Mode mode, YoloSeg::Type type, const string& model_name){
 
     auto engine = YoloSeg::create_infer(
         engine_file,                // engine file
+        type,                       // yoloseg type
         deviceid,                   // gpu id
         0.25f,                      // confidence threshold
         0.45f,                      // nms threshold
@@ -123,11 +124,12 @@ static void inference_and_performance(int deviceid, const string& engine_file, T
     boxes_array.back().get();
 
     float inference_average_time = (iLogger::timestamp_now_float() - begin_timer) / ntest / images.size();
+    auto type_name = YoloSeg::type_name(type);
     auto mode_name = TRT::mode_string(mode);
-    INFO("%s[YoloV8-Seg] average: %.2f ms / image, FPS: %.2f", engine_file.c_str(), inference_average_time, 1000 / inference_average_time);
-    append_to_file("perf.result.log", iLogger::format("%s,YoloV8-Seg,%s,%f", model_name.c_str(), mode_name, inference_average_time));
+    INFO("%s[%s] average: %.2f ms / image, FPS: %.2f", engine_file.c_str(), type_name, inference_average_time, 1000 / inference_average_time);
+    append_to_file("perf.result.log", iLogger::format("%s,%s,%s,%f", model_name.c_str(), type_name, mode_name, inference_average_time));
 
-    string root = iLogger::format("%s_YoloV8-Seg_%s_result", model_name.c_str(), mode_name);
+    string root = iLogger::format("%s_%s_%s_result", model_name.c_str(), type_name, mode_name);
     iLogger::rmtree(root);
     iLogger::mkdir(root);
 
@@ -165,7 +167,7 @@ static void inference_and_performance(int deviceid, const string& engine_file, T
     engine.reset();
 }
 
-static void test(TRT::Mode mode, const string& model){
+static void test(YoloSeg::Type type, TRT::Mode mode, const string& model){
 
     int deviceid = 0;
     auto mode_name = TRT::mode_string(mode);
@@ -182,7 +184,7 @@ static void test(TRT::Mode mode, const string& model){
     };
 
     const char* name = model.c_str();
-    INFO("===================== test YoloV8-Seg %s %s ==================================", mode_name, name);
+    INFO("===================== test %s %s %s ==================================", YoloSeg::type_name(type), mode_name, name);
 
     if(not requires(name))
         return;
@@ -203,13 +205,14 @@ static void test(TRT::Mode mode, const string& model){
         );
     }
 
-    inference_and_performance(deviceid, model_file, mode, name);
+    inference_and_performance(deviceid, model_file, mode, type, name);
 }
 
 static void test_video(){
     
     auto engine = YoloSeg::create_infer(
         "yolov8s-seg.FP32.trtmodel",            // engine file
+        YoloSeg::Type::V8,                      // yoloseg type
         0,                                      // gpu id
         0.25f,                                  // confidence threshold
         0.45f,                                  // nms threshold
@@ -275,6 +278,7 @@ static void test_single_image(){
     
     auto engine = YoloSeg::create_infer(
         "yolov8s-seg.FP32.trtmodel",            // engine file
+        YoloSeg::Type::V8,                      // yoloseg type
         0,                                      // gpu id
         0.25f,                                  // confidence threshold
         0.45f,                                  // nms threshold
@@ -326,8 +330,9 @@ static void test_single_image(){
 
 int app_yolo_seg(){
  
-    test(TRT::Mode::FP32, "yolov8s-seg");
-    // test(TRT::Mode::FP32, "yolo11s-seg");
+    test(YoloSeg::Type::V8, TRT::Mode::FP32, "yolov8s-seg");
+    // test(YoloSeg::Type::V11, TRT::Mode::FP32, "yolo11s-seg");
+    // test(YoloSeg::Type::YOLO26, TRT::Mode::FP32, "yolo26s-seg");
     // test_single_image();
     // test_video();
     return 0;

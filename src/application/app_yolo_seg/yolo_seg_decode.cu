@@ -1,4 +1,5 @@
 
+#include "yolo_seg.hpp"
 #include <common/cuda_tools.hpp>
 
 namespace YoloSeg{
@@ -53,6 +54,39 @@ namespace YoloSeg{
         *pout_item++ = confidence;
         *pout_item++ = label;
         *pout_item++ = 1;  // 1 = keep, 0 = ignore
+        *pout_item++ = position;  // row_index
+    }
+
+    static __global__ void decode_kernel_yolo26_Seg(float *predict, int num_bboxes, float confidence_threshold, float* invert_affine_matrix, float* parray, int MAX_IMAGE_BOXES){
+        
+        int position = blockDim.x * blockIdx.x + threadIdx.x;
+        if (position >= num_bboxes) return;
+
+        // left, top, right, bottom, conf, label, *mask_weight
+        float* pitem     = predict + (6 + 32) * position;
+        float confidence = *(pitem + 4);
+        float label      = *(pitem + 5);
+        if(confidence < confidence_threshold)
+            return;
+
+        int index = atomicAdd(parray, 1);
+        if(index >= MAX_IMAGE_BOXES)
+            return;
+
+        float left   = *pitem++;
+        float top    = *pitem++;
+        float right  = *pitem++;
+        float bottom = *pitem++;
+        affine_project(invert_affine_matrix, left,  top,    &left,  &top);
+        affine_project(invert_affine_matrix, right, bottom, &right, &bottom);
+
+        float *pout_item = parray + 1 + index * (NUM_BOX_ELEMENT - 1);
+        *pout_item++ = left;
+        *pout_item++ = top;
+        *pout_item++ = right;
+        *pout_item++ = bottom;
+        *pout_item++ = confidence;
+        *pout_item++ = label;
         *pout_item++ = position;  // row_index
     }
 
@@ -143,11 +177,15 @@ namespace YoloSeg{
             out_height));
     }
 
-    void decode_kernel_invoker(float* predict, int num_bboxes, int num_classes, float confidence_threshold, float* invert_affine_matrix, float* parray, int max_objects, cudaStream_t stream){
+    void decode_kernel_invoker(float* predict, int num_bboxes, int num_classes, float confidence_threshold, float* invert_affine_matrix, float* parray, int max_objects, cudaStream_t stream, Type type){
         
         auto grid = CUDATools::grid_dims(num_bboxes);
         auto block = CUDATools::block_dims(num_bboxes);
-        checkCudaKernel(decode_kernel_v8_Seg<<<grid, block, 0, stream>>>(predict, num_bboxes, num_classes, confidence_threshold, invert_affine_matrix, parray, max_objects));            
+        if(type == Type::V8 || type == Type::V11){
+            checkCudaKernel(decode_kernel_v8_Seg<<<grid, block, 0, stream>>>(predict, num_bboxes, num_classes, confidence_threshold, invert_affine_matrix, parray, max_objects));            
+        }else{
+            checkCudaKernel(decode_kernel_yolo26_Seg<<<grid, block, 0, stream>>>(predict, num_bboxes, confidence_threshold, invert_affine_matrix, parray, max_objects));            
+        }
     }
 
     void nms_kernel_invoker(float* parray, float nms_threshold, int max_objects, cudaStream_t stream){
