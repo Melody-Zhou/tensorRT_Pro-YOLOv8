@@ -29,7 +29,8 @@ namespace Yolo{
         V10 = 7,
         V11 = 8,
         V12 = 9,
-        V13 = 10
+        V13 = 10,
+        YOLO26 = 11
     };
 
     enum class NMSMethod : int{

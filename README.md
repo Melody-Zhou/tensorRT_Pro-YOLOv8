@@ -3,7 +3,7 @@
 
 该仓库基于 [shouxieai/tensorRT_Pro](https://github.com/shouxieai/tensorRT_Pro)，并进行了调整以支持 YOLOv8 的各项任务。
 
-* 目前已支持 YOLOv8、YOLOv8-Cls、YOLOv8-Seg、YOLOv8-OBB、YOLOv8-Pose、RT-DETR、ByteTrack、YOLOv9、YOLOv10、RTMO、PP-OCRv4、LaneATT、CLRNet、CLRerNet、YOLO11、Depth-Anything、YOLOv12、YOLOv13 高性能推理！！！🚀🚀🚀
+* 目前已支持 YOLOv8、YOLOv8-Cls、YOLOv8-Seg、YOLOv8-OBB、YOLOv8-Pose、RT-DETR、ByteTrack、YOLOv9、YOLOv10、RTMO、PP-OCRv4、LaneATT、CLRNet、CLRerNet、YOLO11、Depth-Anything、YOLOv12、YOLOv13、YOLO26 高性能推理！！！🚀🚀🚀
 * 基于 tensorRT8.x，C++ 高级接口，C++ 部署，服务器/嵌入式使用
 
 <div align=center><img src="./assets/output.jpg" width="50%" height="50%"></div>
@@ -35,6 +35,8 @@
 - 🔥 [YOLOv12推理详解及部署实现](https://blog.csdn.net/qq_40672115/article/details/145738637)
 
 ## Top News
+- **2026/1/15**
+  - YOLO26 分类、检测、分割、姿态点估计任务支持
 - **2025/6/25**
   - YOLOv13 支持
 - **2025/2/19**
@@ -2575,6 +2577,401 @@ python export.py
 cp yolov13/yolov13s.onnx tensorRT_Pro-YOLOv8/workspace
 cd tensorRT_Pro-YOLOv8
 make yolo -j64
+```
+
+</details>
+
+<details>
+
+<summary>YOLO26支持</summary>
+
+1. 前置条件
+
+- **tensorRT >= 8.6**
+
+2. 下载 YOLO26
+
+```shell
+git clone https://github.com/ultralytics/ultralytics.git
+```
+
+3. 修改代码, 保证动态 batch
+
+```python
+# ========== exporter.py ==========
+
+# ultralytics/ultralytics/engine/exporter.py第687行
+# output_names = ["output0", "output1"] if self.model.task == "segment" else ["output0"]
+# dynamic = self.args.dynamic
+# if dynamic:
+#     dynamic = {"images": {0: "batch", 2: "height", 3: "width"}}  # shape(1,3,640,640)
+#     if isinstance(self.model, SegmentationModel):
+#         dynamic["output0"] = {0: "batch", 2: "anchors"}  # shape(1, 116, 8400)
+#         dynamic["output1"] = {0: "batch", 2: "mask_height", 3: "mask_width"}  # shape(1,32,160,160)
+#     elif isinstance(self.model, DetectionModel):
+#         dynamic["output0"] = {0: "batch", 2: "anchors"}  # shape(1, 84, 8400)
+#     if self.args.nms:  # only batch size is dynamic with NMS
+#         dynamic["output0"].pop(2)
+# 修改为：
+
+output_names = ["output0", "output1"] if self.model.task == "segment" else ["output"]
+dynamic = self.args.dynamic
+if dynamic:
+    dynamic = {"images": {0: "batch"}}  # shape(1,3,640,640)
+    if isinstance(self.model, SegmentationModel):
+        dynamic["output0"] = {0: "batch", 2: "anchors"}  # shape(1, 116, 8400)
+        dynamic["output1"] = {0: "batch", 2: "mask_height", 3: "mask_width"}  # shape(1,32,160,160)
+    elif isinstance(self.model, DetectionModel):
+        dynamic["output"] = {0: "batch"}  # shape(1, 84, 8400)
+    if self.args.nms:  # only batch size is dynamic with NMS
+        dynamic["output0"].pop(2)
+```
+
+4. 导出 onnx 模型，在 ultralytics 新建导出文件 `export.py` 内容如下
+
+```python
+from ultralytics import YOLO
+
+model = YOLO("yolo26s.pt")
+
+success = model.export(format="onnx", dynamic=True, simplify=True)
+```
+
+```shell
+cd ultralytics
+python export.py
+```
+
+5. engine 生成
+
+- **方案一**：替换 tensorRT_Pro-YOLOv8 中的 onnxparser 解析器，具体可参考文章：[RT-DETR推理详解及部署实现](https://blog.csdn.net/qq_40672115/article/details/134356250)
+- **方案二**：利用 **trtexec** 工具生成 engine
+
+```shell
+cp ultralytics/yolo26s.onnx tensorRT_Pro-YOLOv8/workspace
+cd tensorRT_Pro-YOLOv8/workspace
+# 取消 build.sh 中 yolo26 engine 生成的注释
+bash build.sh
+```
+
+6. 执行
+
+```shell
+make yolo -j64
+```
+
+**Note**：YOLO26 和 YOLOv10 类似，都是 anchor-free 的模型，无 NMS 后处理，所以部署流程完全可以参考 YOLOv10，甚至用同一套推理代码
+
+</details>
+
+<details>
+<summary>YOLO26-Cls支持</summary>
+
+1. 下载 YOLO26
+
+```shell
+git clone https://github.com/ultralytics/ultralytics.git
+```
+
+2. 修改代码，保证动态 batch
+
+```python
+# ========== exporter.py ==========
+
+# ultralytics/ultralytics/engine/exporter.py第687行
+# output_names = ["output0", "output1"] if self.model.task == "segment" else ["output0"]
+# dynamic = self.args.dynamic
+# if dynamic:
+#     dynamic = {"images": {0: "batch", 2: "height", 3: "width"}}  # shape(1,3,640,640)
+#     if isinstance(self.model, SegmentationModel):
+#         dynamic["output0"] = {0: "batch", 2: "anchors"}  # shape(1, 116, 8400)
+#         dynamic["output1"] = {0: "batch", 2: "mask_height", 3: "mask_width"}  # shape(1,32,160,160)
+#     elif isinstance(self.model, DetectionModel):
+#         dynamic["output0"] = {0: "batch", 2: "anchors"}  # shape(1, 84, 8400)
+#     if self.args.nms:  # only batch size is dynamic with NMS
+#         dynamic["output0"].pop(2)
+# 修改为：
+
+output_names = ["output0", "output1"] if self.model.task == "segment" else ["output"]
+dynamic = self.args.dynamic
+if dynamic:
+    dynamic = {"images": {0: "batch"}}  # shape(1,3,640,640)
+    dynamic['output'] = {0: 'batch'}
+    if isinstance(self.model, SegmentationModel):
+        dynamic["output0"] = {0: "batch", 2: "anchors"}  # shape(1, 116, 8400)
+        dynamic["output1"] = {0: "batch", 2: "mask_height", 3: "mask_width"}  # shape(1,32,160,160)
+    elif isinstance(self.model, DetectionModel):
+        dynamic["output0"] = {0: "batch", 2: "anchors"}  # shape(1, 84, 8400)
+    if self.args.nms:  # only batch size is dynamic with NMS
+        dynamic["output0"].pop(2)
+```
+
+3. 导出 onnx 模型，在 ultralytics 新建导出文件 `export.py` 内容如下：
+
+```python
+from ultralytics import YOLO
+
+model = YOLO("yolo26s-cls.pt")
+
+success = model.export(format="onnx", dynamic=True, simplify=True)
+```
+
+```shell
+cd ultralytics
+python export.py
+```
+
+4. 复制模型并执行
+
+```shell
+cp ultralytics/yolo26s-cls.onnx tensorRT_Pro-YOLOv8/workspace
+cd tensorRT_Pro-YOLOv8
+make yolo_cls -j64
+```
+
+</details>
+
+<details>
+
+<summary>YOLO26-Seg支持</summary>
+
+1. 前置条件
+
+- **tensorRT >= 8.6**
+
+2. 下载 YOLO26
+
+```shell
+git clone https://github.com/ultralytics/ultralytics.git
+```
+
+3. 修改代码, 保证动态 batch
+
+```python
+# ========== exporter.py ==========
+
+# ultralytics/ultralytics/engine/exporter.py第687行
+# output_names = ["output0", "output1"] if self.model.task == "segment" else ["output0"]
+# dynamic = self.args.dynamic
+# if dynamic:
+#     dynamic = {"images": {0: "batch", 2: "height", 3: "width"}}  # shape(1,3,640,640)
+#     if isinstance(self.model, SegmentationModel):
+#         dynamic["output0"] = {0: "batch", 2: "anchors"}  # shape(1, 116, 8400)
+#         dynamic["output1"] = {0: "batch", 2: "mask_height", 3: "mask_width"}  # shape(1,32,160,160)
+#     elif isinstance(self.model, DetectionModel):
+#         dynamic["output0"] = {0: "batch", 2: "anchors"}  # shape(1, 84, 8400)
+#     if self.args.nms:  # only batch size is dynamic with NMS
+#         dynamic["output0"].pop(2)
+# 修改为：
+
+output_names = ["output0", "output1"] if self.model.task == "segment" else ["output0"]
+dynamic = self.args.dynamic
+if dynamic:
+    dynamic = {"images": {0: "batch"}}  # shape(1,3,640,640)
+    if isinstance(self.model, SegmentationModel):
+        dynamic["output0"] = {0: "batch"}  # shape(1, 116, 8400)
+        dynamic["output1"] = {0: "batch"}  # shape(1,32,160,160)
+    elif isinstance(self.model, DetectionModel):
+        dynamic["output0"] = {0: "batch", 2: "anchors"}  # shape(1, 84, 8400)
+    if self.args.nms:  # only batch size is dynamic with NMS
+        dynamic["output0"].pop(2)
+```
+
+4. 导出 onnx 模型，在 ultralytics 新建导出文件 `export.py` 内容如下
+
+```python
+from ultralytics import YOLO
+
+model = YOLO("yolo26s-seg.pt")
+
+success = model.export(format="onnx", dynamic=True, simplify=True)
+```
+
+```shell
+cd ultralytics
+python export.py
+```
+
+5. engine 生成
+
+- **方案一**：替换 tensorRT_Pro-YOLOv8 中的 onnxparser 解析器，具体可参考文章：[RT-DETR推理详解及部署实现](https://blog.csdn.net/qq_40672115/article/details/134356250)
+- **方案二**：利用 **trtexec** 工具生成 engine
+
+```shell
+cp ultralytics/yolo26s-seg.onnx tensorRT_Pro-YOLOv8/workspace
+cd tensorRT_Pro-YOLOv8/workspace
+# 取消 build.sh 中 yolo26-seg engine 生成的注释
+bash build.sh
+```
+
+6. 执行
+
+```shell
+make yolo_seg -j64
+```
+
+</details>
+
+<details>
+
+<summary>YOLO26-OBB支持</summary>
+
+1. 前置条件
+
+- **tensorRT >= 8.6**
+
+2. 下载 YOLO26
+
+```shell
+git clone https://github.com/ultralytics/ultralytics.git
+```
+
+3. 修改代码, 保证动态 batch
+
+```python
+# ========== exporter.py ==========
+
+# ultralytics/ultralytics/engine/exporter.py第687行
+# output_names = ["output0", "output1"] if self.model.task == "segment" else ["output0"]
+# dynamic = self.args.dynamic
+# if dynamic:
+#     dynamic = {"images": {0: "batch", 2: "height", 3: "width"}}  # shape(1,3,640,640)
+#     if isinstance(self.model, SegmentationModel):
+#         dynamic["output0"] = {0: "batch", 2: "anchors"}  # shape(1, 116, 8400)
+#         dynamic["output1"] = {0: "batch", 2: "mask_height", 3: "mask_width"}  # shape(1,32,160,160)
+#     elif isinstance(self.model, DetectionModel):
+#         dynamic["output0"] = {0: "batch", 2: "anchors"}  # shape(1, 84, 8400)
+#     if self.args.nms:  # only batch size is dynamic with NMS
+#         dynamic["output0"].pop(2)
+# 修改为：
+
+output_names = ["output0", "output1"] if self.model.task == "segment" else ["output"]
+dynamic = self.args.dynamic
+if dynamic:
+    dynamic = {"images": {0: "batch"}}  # shape(1,3,640,640)
+    dynamic["output"] = {0: "batch"}
+    if isinstance(self.model, SegmentationModel):
+        dynamic["output0"] = {0: "batch", 2: "anchors"}  # shape(1, 116, 8400)
+        dynamic["output1"] = {0: "batch", 2: "mask_height", 3: "mask_width"}  # shape(1,32,160,160)
+    elif isinstance(self.model, DetectionModel):
+        dynamic["output0"] = {0: "batch", 2: "anchors"}  # shape(1, 84, 8400)
+    if self.args.nms:  # only batch size is dynamic with NMS
+        dynamic["output0"].pop(2)
+```
+
+4. 导出 onnx 模型，在 ultralytics 新建导出文件 `export.py` 内容如下
+
+```python
+from ultralytics import YOLO
+
+model = YOLO("yolo26s-obb.pt")
+
+success = model.export(format="onnx", dynamic=True, simplify=True)
+```
+
+```shell
+cd ultralytics
+python export.py
+```
+
+5. engine 生成
+
+- **方案一**：替换 tensorRT_Pro-YOLOv8 中的 onnxparser 解析器，具体可参考文章：[RT-DETR推理详解及部署实现](https://blog.csdn.net/qq_40672115/article/details/134356250)
+- **方案二**：利用 **trtexec** 工具生成 engine
+
+```shell
+cp ultralytics/yolo26s-obb.onnx tensorRT_Pro-YOLOv8/workspace
+cd tensorRT_Pro-YOLOv8/workspace
+# 取消 build.sh 中 yolo26-obb engine 生成的注释
+bash build.sh
+```
+
+6. 执行
+
+```shell
+make yolo_obb -j64
+```
+
+</details>
+
+<details>
+
+<summary>YOLO26-Pose支持</summary>
+
+1. 前置条件
+
+- **tensorRT >= 8.6**
+
+2. 下载 YOLO26
+
+```shell
+git clone https://github.com/ultralytics/ultralytics.git
+```
+
+3. 修改代码, 保证动态 batch
+
+```python
+# ========== exporter.py ==========
+
+# ultralytics/ultralytics/engine/exporter.py第687行
+# output_names = ["output0", "output1"] if self.model.task == "segment" else ["output0"]
+# dynamic = self.args.dynamic
+# if dynamic:
+#     dynamic = {"images": {0: "batch", 2: "height", 3: "width"}}  # shape(1,3,640,640)
+#     if isinstance(self.model, SegmentationModel):
+#         dynamic["output0"] = {0: "batch", 2: "anchors"}  # shape(1, 116, 8400)
+#         dynamic["output1"] = {0: "batch", 2: "mask_height", 3: "mask_width"}  # shape(1,32,160,160)
+#     elif isinstance(self.model, DetectionModel):
+#         dynamic["output0"] = {0: "batch", 2: "anchors"}  # shape(1, 84, 8400)
+#     if self.args.nms:  # only batch size is dynamic with NMS
+#         dynamic["output0"].pop(2)
+# 修改为：
+
+output_names = ["output0", "output1"] if self.model.task == "segment" else ["output"]
+dynamic = self.args.dynamic
+if dynamic:
+    dynamic = {"images": {0: "batch"}}  # shape(1,3,640,640)
+    dynamic["output"] = {0: "batch"}
+    if isinstance(self.model, SegmentationModel):
+        dynamic["output0"] = {0: "batch", 2: "anchors"}  # shape(1, 116, 8400)
+        dynamic["output1"] = {0: "batch", 2: "mask_height", 3: "mask_width"}  # shape(1,32,160,160)
+    elif isinstance(self.model, DetectionModel):
+        dynamic["output0"] = {0: "batch", 2: "anchors"}  # shape(1, 84, 8400)
+    if self.args.nms:  # only batch size is dynamic with NMS
+        dynamic["output0"].pop(2)
+```
+
+4. 导出 onnx 模型，在 ultralytics 新建导出文件 `export.py` 内容如下
+
+```python
+from ultralytics import YOLO
+
+model = YOLO("yolo26s-pose.pt")
+
+success = model.export(format="onnx", dynamic=True, simplify=True)
+```
+
+```shell
+cd ultralytics
+python export.py
+```
+
+5. engine 生成
+
+- **方案一**：替换 tensorRT_Pro-YOLOv8 中的 onnxparser 解析器，具体可参考文章：[RT-DETR推理详解及部署实现](https://blog.csdn.net/qq_40672115/article/details/134356250)
+- **方案二**：利用 **trtexec** 工具生成 engine
+
+```shell
+cp ultralytics/yolo26s-pose.onnx tensorRT_Pro-YOLOv8/workspace
+cd tensorRT_Pro-YOLOv8/workspace
+# 取消 build.sh 中 yolo26-pose engine 生成的注释
+bash build.sh
+```
+
+6. 执行
+
+```shell
+make yolo_pose -j64
 ```
 
 </details>

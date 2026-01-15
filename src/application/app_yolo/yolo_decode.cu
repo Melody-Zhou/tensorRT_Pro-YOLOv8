@@ -190,7 +190,7 @@ namespace Yolo{
         auto block = CUDATools::block_dims(num_bboxes);
         if(type == Type::V6 || type == Type::V8 || type == Type::V9 || type == Type::V11 || type == Type::V12 || type == Type::V13){
             checkCudaKernel(decode_kernel_v8<<<grid, block, 0, stream>>>(predict, num_bboxes, num_classes, confidence_threshold, invert_affine_matrix, parray, max_objects));            
-        }else if(type == Type::V10){
+        }else if(type == Type::V10 || type == Type::YOLO26){
             checkCudaKernel(decode_kernel_v10<<<grid, block, 0, stream>>>(predict, num_bboxes, confidence_threshold, invert_affine_matrix, parray, max_objects))
         }else{
             checkCudaKernel(decode_kernel<<<grid, block, 0, stream>>>(predict, num_bboxes, num_classes, confidence_threshold, invert_affine_matrix, parray, max_objects));
