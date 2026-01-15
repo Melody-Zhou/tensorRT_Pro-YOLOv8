@@ -43,10 +43,11 @@ static vector<cv::Point> xywhr2xyxyxyxy(const YoloOBB::Box& box) {
     return corners;
 }
 
-static void inference_and_performance(int deviceid, const string& engine_file, TRT::Mode mode, const string& model_name){
+static void inference_and_performance(int deviceid, const string& engine_file, TRT::Mode mode, YoloOBB::Type type, const string& model_name){
     
     auto engine = YoloOBB::create_infer(
         engine_file,                   // engine file
+        type,                          // yoloobb type
         deviceid,                      // gpu id
         0.25f,                         // confidence threshold
         0.45f,                         // nms threshold
@@ -84,11 +85,12 @@ static void inference_and_performance(int deviceid, const string& engine_file, T
     boxes_array.back().get();
 
     float inference_average_time = (iLogger::timestamp_now_float() - begin_timer) / ntest / images.size();
+    auto type_name = YoloOBB::type_name(type);
     auto mode_name = TRT::mode_string(mode);
-    INFO("%s[YoloV8-OBB] average: %.2f ms / image, FPS: %.2f", engine_file.c_str(), inference_average_time, 1000 / inference_average_time);
-    append_to_file("perf.result.log", iLogger::format("%s,YoloV8-OBB,%s,%f", model_name.c_str(), mode_name, inference_average_time));
+    INFO("%s[%s] average: %.2f ms / image, FPS: %.2f", engine_file.c_str(), type_name, inference_average_time, 1000 / inference_average_time);
+    append_to_file("perf.result.log", iLogger::format("%s,%s,%s,%f", model_name.c_str(), type_name, mode_name, inference_average_time));
 
-    string root = iLogger::format("%s_YoloV8-OBB_%s_result", model_name.c_str(), mode_name);
+    string root = iLogger::format("%s_%s_%s_result", model_name.c_str(), type_name, mode_name);
     iLogger::rmtree(root);
     iLogger::mkdir(root);
 
@@ -118,7 +120,7 @@ static void inference_and_performance(int deviceid, const string& engine_file, T
     engine.reset();    
 }
 
-static void test(TRT::Mode mode, const string& model){
+static void test(YoloOBB::Type type, TRT::Mode mode, const string& model){
     int deviceid = 0;
     auto mode_name = TRT::mode_string(mode);
     TRT::set_device(deviceid);
@@ -134,7 +136,7 @@ static void test(TRT::Mode mode, const string& model){
     };
 
     const char* name = model.c_str();
-    INFO("===================== test YoloV8-OBB %s %s ==================================", mode_name, name);
+    INFO("===================== test %s %s %s ==================================", YoloOBB::type_name(type), mode_name, name);
 
     if(not requires(name))
         return;
@@ -155,13 +157,14 @@ static void test(TRT::Mode mode, const string& model){
         );
     }
 
-    inference_and_performance(deviceid, model_file, mode, name);    
+    inference_and_performance(deviceid, model_file, mode, type, name);    
 }
 
 static void test_single_image(){
     
     auto engine = YoloOBB::create_infer(
         "yolov8s-obb.FP32.trtmodel",            // engine file
+        YoloOBB::Type::V8,                      // yoloobb type
         0,                                      // gpu id
         0.25f,                                  // confidence threshold
         0.45f,                                  // nms threshold
@@ -206,7 +209,7 @@ void perf() {
 
     for (int i = images.size(); i < batch; ++i) images.push_back(images[i % 1]);
 
-    auto engine = YoloOBB::create_infer("yolov8s-obb.FP32.trtmodel", 0);
+    auto engine = YoloOBB::create_infer("yolov8s-obb.FP32.trtmodel", YoloOBB::Type::V8, 0);
 
     if(engine == nullptr){
         INFOE("Engine is nullptr");
@@ -246,8 +249,9 @@ void perf() {
 
 int app_yolo_obb(){
  
-    test(TRT::Mode::FP32, "yolov8s-obb");
-    // test(TRT::Mode::FP32, "yolo11s-obb");
+    test(YoloOBB::Type::V8, TRT::Mode::FP32, "yolov8s-obb");
+    // test(YoloOBB::Type::V11, TRT::Mode::FP32, "yolo11s-obb");
+    // test(YoloOBB::Type::YOLO26, TRT::Mode::FP32, "yolo26s-obb");
     // test_single_image();
     // perf();
 
