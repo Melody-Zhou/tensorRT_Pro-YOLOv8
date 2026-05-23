@@ -33,8 +33,11 @@
 - 🔥 [Depth-Anything推理详解及部署实现（上）](https://blog.csdn.net/qq_40672115/article/details/144199266)
 - 🔥 [Depth-Anything推理详解及部署实现（下）](https://blog.csdn.net/qq_40672115/article/details/144475226)
 - 🔥 [YOLOv12推理详解及部署实现](https://blog.csdn.net/qq_40672115/article/details/145738637)
+- 🔥 [YOLO26-Sem推理详解及部署实现](https://blog.csdn.net/qq_40672115/article/details/161342118)
 
 ## Top News
+- **2026/5/23**
+  - YOLO26 语义分割任务支持
 - **2026/1/15**
   - YOLO26 分类、检测、分割、姿态点估计任务支持
 - **2025/6/25**
@@ -2972,6 +2975,61 @@ bash build.sh
 
 ```shell
 make yolo_pose -j64
+```
+
+</details>
+
+<details>
+
+<summary>YOLO26-Sem支持</summary>
+
+1. 下载 YOLO26
+
+```shell
+git clone https://github.com/ultralytics/ultralytics.git
+```
+
+2. 修改代码, 保证动态 batch
+
+```python
+# ========== exporter.py ==========
+
+# ultralytics/engine/exporter.py 第 638 行
+# output_names = ["output0", "output1"] if self.model.task == "segment" else ["output1"]
+# dynamic = self.args.dynamic
+# if dynamic:
+#     dynamic = {"images": {0: "batch", 2: "height", 3: "width"}}  # shape(1,3,640,640)
+# 修改为：
+
+output_names = ["output0", "output1"] if self.model.task == "segment" else ["output"]
+dynamic = self.args.dynamic
+if dynamic:
+    dynamic = {"images": {0: "batch"}}  # shape(1,3,640,640)
+```
+
+3. 导出 onnx 模型，在 ultralytics 新建导出文件 `export.py` 内容如下
+
+```python
+from ultralytics import YOLO
+
+# Load a model
+model = YOLO("yolo26s-sem.pt")  # load an official model
+
+# Export the model
+model.export(format="onnx", imgsz=(512, 1024), dynamic=True, simplify=True)
+```
+
+```shell
+cd ultralytics
+python export.py
+```
+
+4. 复制模型并执行
+
+```shell
+cp ultralytics/yolo26s-sem.onnx tensorRT_Pro-YOLOv8/workspace
+cd tensorRT_Pro-YOLOv8/workspace
+make yolo_sem -j64
 ```
 
 </details>

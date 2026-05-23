@@ -122,6 +122,9 @@ yolo_seg : workspace/pro
 yolo_obb : workspace/pro
 	@cd workspace && ./pro yolo_obb
 
+yolo_sem : workspace/pro
+	@cd workspace && ./pro yolo_sem
+
 bytetrack : workspace/pro
 	@cd workspace && ./pro bytetrack
 
