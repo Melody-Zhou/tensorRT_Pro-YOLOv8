@@ -3,7 +3,7 @@
 
 该仓库基于 [shouxieai/tensorRT_Pro](https://github.com/shouxieai/tensorRT_Pro)，并进行了调整以支持 YOLOv8 的各项任务。
 
-* 目前已支持 YOLOv8、YOLOv8-Cls、YOLOv8-Seg、YOLOv8-OBB、YOLOv8-Pose、RT-DETR、ByteTrack、YOLOv9、YOLOv10、RTMO、PP-OCRv4、LaneATT、CLRNet、CLRerNet、YOLO11、Depth-Anything、YOLOv12、YOLOv13、YOLO26 高性能推理！！！🚀🚀🚀
+* 目前已支持 YOLOv8、YOLOv8-Cls、YOLOv8-Seg、YOLOv8-OBB、YOLOv8-Pose、RT-DETR、RF-DETR、ByteTrack、YOLOv9、YOLOv10、RTMO、PP-OCRv4、LaneATT、CLRNet、CLRerNet、YOLO11、Depth-Anything、YOLOv12、YOLOv13、YOLO26 高性能推理！！！🚀🚀🚀
 * 基于 tensorRT8.x，C++ 高级接口，C++ 部署，服务器/嵌入式使用
 
 <div align=center><img src="./assets/output.jpg" width="50%" height="50%"></div>
@@ -36,6 +36,8 @@
 - 🔥 [YOLO26-Sem推理详解及部署实现](https://blog.csdn.net/qq_40672115/article/details/161342118)
 
 ## Top News
+- **2026/6/24**
+  - RF-DETR 检测任务支持
 - **2026/5/23**
   - YOLO26 语义分割任务支持
 - **2026/1/15**
@@ -877,6 +879,241 @@ make rtdetr -j64
 
 </details>
 
+
+<details>
+<summary>RF-DETR支持</summary>
+
+1. 前置条件
+
+- **tensorRT >= 8.6**
+
+2. 下载 RF-DETR
+
+```shell
+git clone https://github.com/roboflow/rf-detr.git
+```
+
+3. 修改代码，将后处理塞进 ONNX 计算图
+
+- **step 1.** 在 `rf-detr/src/rfdetr/export/_onnx` 文件夹下新建 **post_process.py**，内容如下：
+
+```python
+# ------------------------------------------------------------------------
+# RF-DETR
+# Copyright (c) 2025 Roboflow. All Rights Reserved.
+# Licensed under the Apache License, Version 2.0 [see LICENSE for details]
+# ------------------------------------------------------------------------
+"""Lightweight wrapper that embeds post-processing into the ONNX graph for deployment."""
+
+import torch
+from torch import nn
+
+
+class ExportPostProcessor(nn.Module):
+    """Wraps the raw LWDETR model so that sigmoid + argmax + merge are part of the ONNX graph.
+
+    The wrapped model's ``forward()`` produces a single tensor that is ready for threshold filtering
+    at the caller side — no additional CUDA kernels are needed for post-processing.
+
+    Input:
+        images: (B, 3, H, W) float32, already resized and normalized.
+
+    Output:
+        output: (B, 300, 6) where the last dim is ``[cx, cy, w, h, confidence, class_id]``.
+    """
+
+    def __init__(self, model: nn.Module) -> None:
+        super().__init__()
+        self.model = model
+
+    def forward(self, images: torch.Tensor) -> torch.Tensor:
+        outputs = self.model(images)
+
+        # forward_export() returns a tuple (boxes, logits, ...); standard forward() returns a dict.
+        if isinstance(outputs, tuple):
+            pred_boxes = outputs[0]
+            pred_logits = outputs[1]
+        else:
+            pred_boxes = outputs["pred_boxes"]
+            pred_logits = outputs["pred_logits"]
+
+        # Sigmoid → per-query argmax to select the best class.
+        probs = pred_logits.sigmoid()           # (B, 300, 91)
+        scores, labels = probs.max(dim=-1)       # (B, 300), (B, 300)
+        labels = labels.float().unsqueeze(-1)    # (B, 300, 1)
+        scores = scores.unsqueeze(-1)            # (B, 300, 1)
+
+        # Merge: [cx, cy, w, h, confidence, class_id]
+        return torch.cat([pred_boxes, scores, labels], dim=-1)  # (B, 300, 6)
+
+
+class ExportRawProcessor(nn.Module):
+    """Wraps LWDETR for ONNX export with raw outputs — no post-processing in the graph.
+
+    Use this to isolate whether FP16 issues come from post-processing fusion or the main network.
+
+    Input:
+        images: (B, 3, H, W) float32
+
+    Output:
+        pred_boxes:  (B, 300, 4)   cxcywh, normalized [0,1]
+        pred_logits: (B, 300, 91)  raw class logits
+    """
+
+    def __init__(self, model: nn.Module) -> None:
+        super().__init__()
+        self.model = model
+
+    def forward(self, images: torch.Tensor) -> tuple[torch.Tensor, torch.Tensor]:
+        outputs = self.model(images)
+        if isinstance(outputs, tuple):
+            return outputs[0], outputs[1]
+        else:
+            return outputs["pred_boxes"], outputs["pred_logits"]
+```
+
+- **step 2.** 在 `rf-detr/src/rfdetr/detr.py` 文件的 1133 行也就是 **export()** 函数后面新增如下函数：
+
+```python
+def export_for_deployment(
+    self,
+    output_dir: str = "output",
+    shape: tuple[int, int] | None = None,
+    batch_size: int = 1,
+    opset_version: int = 17,
+    simplify: bool = True,
+    dynamic_batch: bool = False,
+    patch_size: int | None = None,
+) -> Path:
+    """Export ONNX with embedded post-processing for TensorRT deployment.
+
+    Produces a single ONNX file where sigmoid, argmax, and box-label merging are baked into the
+    graph.  The caller only needs to resize, normalise, and run the model — the output is ready for
+    threshold filtering without any additional CUDA kernels.
+
+    Args:
+        output_dir: Directory to write the exported ONNX model.
+        shape: ``(height, width)`` tuple; defaults to ``(model.resolution, model.resolution)``.
+        batch_size: Static batch size baked into the ONNX graph.
+        opset_version: ONNX opset version to target.
+        simplify: Whether to run ``onnxsim`` on the exported graph.
+        patch_size: Backbone patch size. Defaults to ``model_config.patch_size``.
+
+    Returns:
+        Path to the exported ``.onnx`` file.
+    """
+    from copy import deepcopy
+
+    from rfdetr.export._onnx.post_process import ExportPostProcessor
+    from rfdetr.export.main import make_infer_image
+
+    patch_size = _resolve_patch_size(patch_size, self.model_config, "export_for_deployment")
+    num_windows = getattr(self.model_config, "num_windows", 1)
+    if isinstance(num_windows, bool) or not isinstance(num_windows, int) or num_windows <= 0:
+        raise ValueError(f"num_windows must be a positive integer, got {num_windows!r}")
+    block_size = patch_size * num_windows
+
+    if shape is None:
+        shape = (self.model.resolution, self.model.resolution)
+        if shape[0] % block_size != 0:
+            raise ValueError(
+                f"Model's default resolution ({self.model.resolution}) is not divisible by "
+                f"block_size={block_size} (patch_size={patch_size} * num_windows={num_windows}). "
+                f"Provide an explicit shape divisible by {block_size}.",
+            )
+    else:
+        shape = _validate_shape_dims(shape, block_size, patch_size, num_windows)
+
+    device = self.model.device
+    self.model.model = self.model.model.to("cpu")
+    model = deepcopy(self.model.model)
+    model.to(device)
+    try:
+        os.makedirs(output_dir, exist_ok=True)
+
+        input_tensors = make_infer_image(
+            None, shape, batch_size, device, num_channels=self.model_config.num_channels
+        ).to(device)
+
+        # Wrap with post-processing so sigmoid + argmax are baked into the ONNX graph.
+        # Must call model.export() first to disable anti-alias upsampling (incompatible with ONNX).
+        if hasattr(model, "export"):
+            model.export()
+        wrapped = ExportPostProcessor(model)
+        wrapped.eval()
+
+        input_names = ["images"]
+        output_names = ["output"]
+
+        dynamic_axes = {"images": {0: "batch"}, "output": {0: "batch"}} if dynamic_batch else None
+
+        export_kwargs = {}
+        if "dynamo" in __import__("inspect").signature(torch.onnx.export).parameters:
+            export_kwargs["dynamo"] = False
+
+        output_file = os.path.join(output_dir, f"{getattr(self, 'size', 'inference_model')}.onnx")
+        torch.onnx.export(
+            wrapped,
+            input_tensors,
+            output_file,
+            input_names=input_names,
+            output_names=output_names,
+            export_params=True,
+            keep_initializers_as_inputs=False,
+            do_constant_folding=True,
+            verbose=False,
+            opset_version=opset_version,
+            dynamic_axes=dynamic_axes,
+            **export_kwargs,
+        )
+
+        logger.info(f"Successfully exported ONNX model to: {output_file}")
+
+        if simplify:
+            from rfdetr.export._onnx.exporter import onnx_simplify
+
+            onnx_simplify(output_file, input_names=["images"], input_tensors=input_tensors)
+
+        logger.info("Export for deployment completed successfully")
+        return Path(output_file)
+    finally:
+        self.model.model = self.model.model.to(device)
+```
+
+4. 导出 onnx 模型，在 rf-detr 新建导出文件 `export.py` 内容如下：
+
+```python
+from rfdetr import RFDETRMedium
+
+model = RFDETRMedium(pretrain_weights="./checkpoint_best_regular.pth")
+
+# Export with embedded post-processing (sigmoid+argmax+concat)
+model.export_for_deployment(output_dir="output", shape=(576, 576))
+```
+
+```shell
+cd rf-detr
+python export.py
+```
+
+5. engine 生成
+
+- **方案一**：替换 tensorRT_Pro-YOLOv8 中的 onnxparser 解析器，具体可参考文章：[RT-DETR推理详解及部署实现](https://blog.csdn.net/qq_40672115/article/details/134356250)
+- **方案二**：利用 **trtexec** 工具生成 engine
+
+```shell
+cp rf-detr/output/rfdetr-medium.sim.onnx tensorRT_Pro-YOLOv8/workspace/rfdetr-medium.onnx
+cd tensorRT_Pro-YOLOv8/workspace
+bash build.sh
+```
+
+6. 执行
+
+```shell
+make rfdetr -j64
+```
+
+</details>
 
 <details>
 <summary>ByteTrack支持</summary>

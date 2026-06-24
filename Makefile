@@ -131,6 +131,9 @@ bytetrack : workspace/pro
 rtdetr : workspace/pro
 	@cd workspace && ./pro rtdetr
 
+rfdetr : workspace/pro
+	@cd workspace && ./pro rfdetr
+
 rtmo : workspace/pro
 	@cd workspace && ./pro rtmo
 

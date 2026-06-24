@@ -11,6 +11,7 @@ int app_yolo_obb();
 int app_yolo_pose();
 int app_bytetrack();
 int app_rtdetr();
+int app_rfdetr();
 int app_rtmo();
 int app_ppocr();
 int app_laneatt();
@@ -41,6 +42,8 @@ int main(int argc, char** argv){
         app_bytetrack();
     }else if(strcmp(method, "rtdetr") == 0){
         app_rtdetr();
+    }else if(strcmp(method, "rfdetr") == 0){
+        app_rfdetr();
     }else if(strcmp(method, "rtmo") == 0){
         app_rtmo();
     }else if(strcmp(method, "ppocr") == 0){
@@ -61,7 +64,7 @@ int main(int argc, char** argv){
         printf("Unknow method: %s\n", method);
         printf(
             "Help: \n"
-            "    ./pro method[yolo、yolo_cls、yolo_seg、yolo_sem、yolo_pose、test_yolo_map]\n"
+            "    ./pro method[yolo、yolo_cls、yolo_seg、yolo_sem、yolo_pose、rtdetr、rfdetr、test_yolo_map]\n"
             "\n"
             "    ./pro yolo\n"
             "    ./pro yolo_cls\n"
