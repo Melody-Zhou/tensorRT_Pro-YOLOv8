@@ -1,6 +1,6 @@
 
 <div align="center">
-  <img src="./assets/banner.jpg" width="95%" alt="tensorRT_Pro-Vision Tasks">
+  <img src="./assets/banner.jpg" alt="tensorRT_Pro-Vision Tasks">
 </div>
 
 ## 简介
