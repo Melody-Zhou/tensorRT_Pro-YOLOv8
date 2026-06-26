@@ -4,13 +4,13 @@ nvcc      = ${lean_cuda}/bin/nvcc
 build_pango_backend    := no
 build_truetype_backend := yes
 
-lean_protobuf  := /home/jarvis/protobuf
-# lean_tensor_rt := /opt/TensorRT-8.4.1.5
-# RT-DETR 必须指定高版本的 tensorRT
-lean_tensor_rt := /home/jarvis/lean/TensorRT-8.6.1.6
-lean_cudnn     := /usr/local/cuda-11.6
-lean_opencv    := /usr/local
-lean_cuda      := /usr/local/cuda-11.6
+# lean_tensor_rt := /home/zhouwenguang/lean/TensorRT-8.6.1.6
+# lean_cudnn     := /home/zhouwenguang/lean/cudnn-8.5.0.96
+# lean_cuda      := /usr/local/cuda-11.4
+lean_tensor_rt := /home/zhouwenguang/lean/TensorRT-10.16.1
+lean_cudnn     := /home/zhouwenguang/lean/cudnn-9.18.0
+lean_cuda      := /usr/local/cuda-12.8
+lean_opencv    := /home/zhouwenguang/lean/opencv-4.6.0
 
 # 如果是其他显卡，请修改-gencode=arch=compute_75,code=sm_75为对应显卡的能力
 # 显卡对应的号码参考这里：https://developer.nvidia.com/zh-cn/cuda-gpus#compute
@@ -30,22 +30,20 @@ include_paths := src        \
 			src/application \
 			src/tensorRT	\
 			src/tensorRT/common  \
-			$(lean_protobuf)/include \
 			$(lean_opencv)/include/opencv4 \
 			$(lean_tensor_rt)/include \
 			$(lean_cuda)/include  \
-			$(lean_cudnn)/include 
+			$(lean_cudnn)/include
 
-library_paths := $(lean_protobuf)/lib \
-			$(lean_opencv)/lib    \
+library_paths := $(lean_opencv)/lib    \
 			$(lean_tensor_rt)/lib \
 			$(lean_cuda)/lib64  \
 			$(lean_cudnn)/lib
 
 link_librarys := opencv_core opencv_imgproc opencv_videoio opencv_highgui opencv_imgcodecs \
-			nvinfer nvinfer_plugin \
+			nvinfer nvinfer_plugin nvonnxparser \
 			cuda cublas cudart cudnn \
-			stdc++ protobuf dl
+			stdc++ dl
 
 ifeq ($(build_pango_backend), yes)
 link_librarys += pango-1.0 cairo pangocairo-1.0 glib-2.0 gobject-2.0
@@ -65,7 +63,7 @@ library_paths := $(foreach item,$(library_paths),-L$(item))
 link_librarys := $(foreach item,$(link_librarys),-l$(item))
 
 cpp_compile_flags := -std=c++11 -g -w -O0 -fPIC -pthread -fopenmp $(cppdefine)
-cu_compile_flags  := -std=c++11 -g -w -O0 -Xcompiler "$(cpp_compile_flags)" $(cuda_arch)
+cu_compile_flags  := -std=c++11 -g -w -O0 -Xcompiler "$(cpp_compile_flags)" $(cuda_arch) -Wno-deprecated-gpu-targets
 link_flags        := -pthread -fopenmp -Wl,-rpath='$$ORIGIN'
 
 cpp_compile_flags += $(include_paths)

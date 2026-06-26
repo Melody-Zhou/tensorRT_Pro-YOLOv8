@@ -1,167 +1,86 @@
 
+<div align="center">
+  <img src="./assets/banner.jpg" width="95%" alt="tensorRT_Pro-Vision Tasks">
+</div>
+
 ## 简介
 
-该仓库基于 [shouxieai/tensorRT_Pro](https://github.com/shouxieai/tensorRT_Pro)，并进行了调整以支持 YOLOv8 的各项任务。
+**tensorRT_Pro-Vision** 是一个基于 TensorRT C++ API 的高性能计算机视觉推理框架，支持 20+ 主流视觉模型的一键部署。该仓库从 [shouxieai/tensorRT_Pro](https://github.com/shouxieai/tensorRT_Pro) fork 而来，经过大幅重构和扩展。
 
-* 目前已支持 YOLOv8、YOLOv8-Cls、YOLOv8-Seg、YOLOv8-OBB、YOLOv8-Pose、RT-DETR、RF-DETR、ByteTrack、YOLOv9、YOLOv10、RTMO、PP-OCRv4、LaneATT、CLRNet、CLRerNet、YOLO11、Depth-Anything、YOLOv12、YOLOv13、YOLO26 高性能推理！！！🚀🚀🚀
-* 基于 tensorRT8.x，C++ 高级接口，C++ 部署，服务器/嵌入式使用
+目前已支持 **检测、分类、实例分割、语义分割、姿态估计、旋转框检测 (OBB)、深度估计、文字识别 (OCR)、车道线检测、多目标跟踪** 等多项视觉任务的端到端 GPU 推理。🚀🚀🚀
 
-<div align=center><img src="./assets/output.jpg" width="50%" height="50%"></div>
+**核心特性：**
+- 基于 TensorRT C++ API，支持 **TensorRT 8.x / 10.x** 版本自适应编译（通过 `NV_TENSORRT_MAJOR` 宏自动适配 API 差异）
+- 使用 TensorRT 官方 ONNX 解析器 (`libnvonnxparser.so`)，无需 protobuf 依赖
+- 预处理、后处理、NMS 全部 GPU 加速（CUDA Kernel 实现）
+- 支持 FP32 / FP16 / INT8 三种推理精度，内置 Entropy 和 MinMax 校准器
+- 支持动态 Batch，最大 batch size 可在编译时配置
+- 代码结构清晰，各模型任务独立模块化，易于扩展
 
-## CSDN文章同步讲解
-- 🔥 [YOLOv8推理详解及部署实现](https://blog.csdn.net/qq_40672115/article/details/134276907)
-- 🔥 [YOLOv8-Cls推理详解及部署实现](https://blog.csdn.net/qq_40672115/article/details/134277392)
-- 🔥 [YOLOv8-Seg推理详解及部署实现](https://blog.csdn.net/qq_40672115/article/details/134277752)
-- 🔥 [YOLOv8-OBB推理详解及部署实现](https://blog.csdn.net/qq_40672115/article/details/135713830)
-- 🔥 [YOLOv8-Pose推理详解及部署实现](https://blog.csdn.net/qq_40672115/article/details/134278117)
-- 🔥 [RT-DETR推理详解及部署实现](https://blog.csdn.net/qq_40672115/article/details/134356250)
-- 🔥 [YOLOv9推理详解及部署实现](https://blog.csdn.net/qq_40672115/article/details/136492338)
-- 🔥 [YOLOv10推理详解及部署实现](https://blog.csdn.net/qq_40672115/article/details/139216405)
-- 🔥 [MMPose-RTMO推理详解及部署实现（上）](https://blog.csdn.net/qq_40672115/article/details/139364023)
-- 🔥 [MMPose-RTMO推理详解及部署实现（下）](https://blog.csdn.net/qq_40672115/article/details/139375752)
-- 🔥 [LayerNorm Plugin的使用与说明](https://blog.csdn.net/qq_40672115/article/details/140246052)
-- 🔥 [PaddleOCR-PP-OCRv4推理详解及部署实现（上）](https://blog.csdn.net/qq_40672115/article/details/140571346)
-- 🔥 [PaddleOCR-PP-OCRv4推理详解及部署实现（中）](https://blog.csdn.net/qq_40672115/article/details/140585830)
-- 🔥 [PaddleOCR-PP-OCRv4推理详解及部署实现（下）](https://blog.csdn.net/qq_40672115/article/details/140648937)
-- 🔥 [LaneATT推理详解及部署实现（上）](https://blog.csdn.net/qq_40672115/article/details/140891544)
-- 🔥 [LaneATT推理详解及部署实现（下）](https://blog.csdn.net/qq_40672115/article/details/140909528)
-- 🔥 [CLRNet推理详解及部署实现（上）](https://blog.csdn.net/qq_40672115/article/details/141090952)
-- 🔥 [CLRNet推理详解及部署实现（下）](https://blog.csdn.net/qq_40672115/article/details/141107365)
-- 🔥 [CLRerNet推理详解及部署实现（上）](https://blog.csdn.net/qq_40672115/article/details/141275384)
-- 🔥 [CLRerNet推理详解及部署实现（下）](https://blog.csdn.net/qq_40672115/article/details/141275949)
-- 🔥 [YOLO11推理详解及部署实现](https://blog.csdn.net/qq_40672115/article/details/143089165)
-- 🔥 [Depth-Anything推理详解及部署实现（上）](https://blog.csdn.net/qq_40672115/article/details/144199266)
-- 🔥 [Depth-Anything推理详解及部署实现（下）](https://blog.csdn.net/qq_40672115/article/details/144475226)
-- 🔥 [YOLOv12推理详解及部署实现](https://blog.csdn.net/qq_40672115/article/details/145738637)
-- 🔥 [YOLO26-Sem推理详解及部署实现](https://blog.csdn.net/qq_40672115/article/details/161342118)
+## ✨ What's New
 
-## Top News
-- **2026/6/24**
-  - RF-DETR 检测任务支持
-- **2026/5/23**
-  - YOLO26 语义分割任务支持
-- **2026/1/15**
-  - YOLO26 分类、检测、分割、姿态点估计任务支持
-- **2025/6/25**
-  - YOLOv13 支持
-- **2025/2/19**
-  - YOLOv12 支持
-- **2024/12/14**
-  - Depth-Anything 支持
-- **2024/10/20**
-  - YOLO11 分类、检测、分割、姿态点估计任务支持
-- **2024/8/18**
-  - CLRerNet 支持
-- **2024/8/11**
-  - CLRNet 支持
-- **2024/8/4**
-  - LaneATT 支持
-  - 提供测试视频下载（[Baidu Drive](https://pan.baidu.com/s/1g-DvhZSIbXhEqp4iiFANTQ?pwd=lane )）
-- **2024/7/24**
-  - PP-OCRv4 支持
-  - cuOSD 支持，代码 copy 自 [Lidar_AI_Solution/libraries/cuOSD](https://github.com/NVIDIA-AI-IOT/Lidar_AI_Solution/tree/master/libraries/cuOSD)
-- **2024/7/7**
-  - LayerNorm Plugin 支持，代码 copy 自 [CUDA-BEVFusion/src/plugins/custom_layernorm.cu](https://github.com/NVIDIA-AI-IOT/Lidar_AI_Solution/blob/master/CUDA-BEVFusion/src/plugins/custom_layernorm.cu)
-  - 提供 ONNX 模型下载（[Baidu Drive](https://pan.baidu.com/s/1MbPYzUEkONsjCPOudiTt1A?pwd=onnx)），方便大家测试使用
-- **2024/6/1**
-  - RTMO 支持
-- **2024/5/29**
-  - 修改 YOLOv6 的 ONNX 导出以及推理
-- **2024/5/26**
-  - YOLOv10 支持
-- **2024/3/5**
-  - YOLOv9 支持
-- **2024/2/1**
-  - 新增 MinMaxCalibrator 校准器，可以通过 `TRT::Calibrator::MinMax` 指定
-  - 新增 mAP 测试使用的一些脚本文件，mAP 计算代码 copy 自 [yolov6/core/evaler.py#L231](https://github.com/meituan/YOLOv6/blob/main/yolov6/core/evaler.py#L231)
-- **2024/1/21**
-  - YOLOv8-OBB 支持
-  - ByteTrack 支持，实现基本跟踪功能
-- **2024/1/10**
-  - 修复 IoU 计算 bug
-- **2023/11/12**
-  - RT-DETR 支持
-- **2023/11/07**
-  - 首次提交代码，YOLOv8 分类、检测、分割、姿态点估计任务支持
+- **2026/6/26 重构**
+  - **TensorRT 10.x 全面支持**：通过 `NV_TENSORRT_MAJOR` 宏实现 TRT 8.x / 10.x 双版本自适应编译，API 差异由 `#if NV_TENSORRT_MAJOR >= 10` 条件编译自动处理
+  - **移除 vendored ONNX 解析器**：不再维护自定义的 onnx-tensorrt 解析器（~15,000 行代码），统一使用 TensorRT 官方 `libnvonnxparser.so`，大幅简化代码库
+  - **移除 protobuf 依赖**：不再需要单独安装 protobuf 3.11.4，构建更加简单
+  - **修复 `getMaxBatchSize()` 警告**：显式 batch 模式下使用 `getProfileDimensions` / `getProfileShape` 正确获取最大 batch size
+  - **仓库重命名**：`tensorRT_Pro-YOLOv8` → **`tensorRT_Pro-Vision`**，体现多任务视觉推理的定位
+  - **全新 Banner**：9 宫格任务全景图，直观展示所有支持的视觉任务
+> 📜 **完整历史更新记录**（2023-2026）请查看 [v1.0.0 README](https://github.com/Melody-Zhou/tensorRT_Pro-YOLOv8/blob/v1.0.0/README.md)，其中包含 CSDN 文章同步讲解链接。
 
 ## 环境配置
 
-该项目依赖于 cuda、cudnn、tensorRT、opencv、protobuf 库，请在 CMakeLists.txt 或 Makefile 中手动指定路径配置
+该项目依赖于 CUDA、cuDNN、TensorRT、OpenCV 库，请在 **Makefile** 或 **CMakeLists.txt** 中手动指定路径配置。
 
-* 服务器
-  * CUDA >= 10.2
-  * cuDNN >= 8.x
-  * TensorRT >= 8.x
-  * protobuf == 3.11.4
-  * 软件安装请参考：[Ubuntu20.04软件安装大全](https://blog.csdn.net/qq_40672115/article/details/130255299)
-* 嵌入式
-  * jetpack >= 4.6
-  * protobuf == 3.11.4
+| 依赖 | TensorRT 8.x 推荐 | TensorRT 10.x 推荐 |
+|---|---|---|
+| CUDA | >= 10.2 | >= 12.0 |
+| cuDNN | >= 8.x | >= 9.x |
+| TensorRT | >= 8.4 | >= 10.0 |
+| OpenCV | >= 4.x | >= 4.x |
 
-克隆该项目
+**克隆项目：**
 
 ```shell
-git clone https://github.com/Melody-Zhou/tensorRT_Pro-YOLOv8.git
+git clone https://github.com/Melody-Zhou/tensorRT_Pro-Vision.git
 ```
 
 <details>
-<summary>CMakeLists.txt 编译</summary>
+<summary>Makefile 编译</summary>
 
-1. 修改库文件路径
+1. 修改 Makefile 中的库文件路径：
 
-```cmake
-# CMakeLists.txt 13 行, 修改 opencv 路径
-set(OpenCV_DIR   "/usr/local/include/opencv4/")
+```makefile
+# ===== TensorRT 8.x =====
+lean_tensor_rt := /opt/TensorRT-8.6.1.6
+lean_cudnn     := /home/zhouwenguang/lean/cudnn-8.5.0.96
+lean_cuda      := /usr/local/cuda-11.4
+lean_opencv    := /home/zhouwenguang/lean/opencv-4.6.0
 
-# CMakeLists.txt 15 行, 修改 cuda 路径
-set(CUDA_TOOLKIT_ROOT_DIR     "/usr/local/cuda-11.6")
-
-# CMakeLists.txt 16 行, 修改 cudnn 路径
-set(CUDNN_DIR    "/usr/local/cudnn8.4.0.27-cuda11.6")
-
-# CMakeLists.txt 17 行, 修改 tensorRT 路径
-set(TENSORRT_DIR "/opt/TensorRT-8.4.1.5")
-
-# CMakeLists.txt 20 行, 修改 protobuf 路径
-set(PROTOBUF_DIR "/home/jarvis/protobuf")
+# ===== 或者 TensorRT 10.x =====
+# lean_tensor_rt := /home/zhouwenguang/lean/TensorRT-10.16.1
+# lean_cudnn     := /home/zhouwenguang/lean/cudnn-9.18.0
+# lean_cuda      := /usr/local/cuda-12.8
+# lean_opencv    := /home/zhouwenguang/lean/opencv-4.6.0
 ```
-2. 编译
+2. 编译：
 
 ```shell
-mkdir build
-cd build
-cmake ..
-make -j64
+make -j$(nproc)
 ```
 
 </details>
 
 <details>
-<summary>Makefile 编译</summary>
+<summary>CMakeLists.txt 编译</summary>
 
-1. 修改库文件路径
+1. 修改 CMakeLists.txt 中的库文件路径
 
-```makefile
-# Makefile 4 行，修改 protobuf 路径
-lean_protobuf  := /home/jarvis/protobuf
-
-# Makefile 5 行，修改 tensorRT 路径
-lean_tensor_rt := /opt/TensorRT-8.4.1.5
-
-# Makefile 6 行，修改 cudnn 路径
-lean_cudnn     := /usr/local/cudnn8.4.0.27-cuda11.6
-
-# Makefile 7 行，修改 opencv 路径
-lean_opencv    := /usr/local
-
-# Makefile 8 行，修改 cuda 路径
-lean_cuda      := /usr/local/cuda-11.6
-```
-
-2. 编译
+2. 编译：
 
 ```shell
-make -j64
+mkdir build && cd build
+cmake .. && make -j$(nproc)
 ```
 
 </details>
@@ -213,8 +132,8 @@ python export.py --weights=yolov3.pt --dynamic --simplify --include=onnx --opset
 4. 复制模型并执行
 
 ```shell
-cp yolov3/yolov3.onnx tensorRT_Pro-YOLOv8/workspace
-cd tensorRT_Pro-YOLOv8
+cp yolov3/yolov3.onnx tensorRT_Pro-Vision/workspace
+cd tensorRT_Pro-Vision
 
 # 修改代码在 src/application/app_yolo.cpp: app_yolo 函数中, 使用 V3 的方式即可运行
 # test(Yolo::Type::V3, TRT::Mode::FP32, "yolov3");
@@ -244,8 +163,8 @@ python tools/export_onnx.py -c yolox_s.pth -f exps/default/yolox_s.py --output-n
 3. 复制模型并执行
 
 ```shell
-cp YOLOX/yolox_s.onnx tensorRT_Pro-YOLOv8/workspace
-cd tensorRT_Pro-YOLOv8
+cp YOLOX/yolox_s.onnx tensorRT_Pro-Vision/workspace
+cd tensorRT_Pro-Vision
 
 # 修改代码在 src/application/app_yolo.cpp: app_yolo 函数中, 使用 X 的方式即可运行
 # test(Yolo::Type::X, TRT::Mode::FP32, "yolox_s");
@@ -300,8 +219,8 @@ python export.py --weights=yolov5s.pt --dynamic --simplify --include=onnx --opse
 4. 复制模型并执行
 
 ```shell
-cp yolov5/yolov5s.onnx tensorRT_Pro-YOLOv8/workspace
-cd tensorRT_Pro-YOLOv8
+cp yolov5/yolov5s.onnx tensorRT_Pro-Vision/workspace
+cd tensorRT_Pro-Vision
 
 # 修改代码在 src/application/app_yolo.cpp: app_yolo 函数中, 使用 V5 的方式即可运行
 # test(Yolo::Type::V5, TRT::Mode::FP32, "yolov5s");
@@ -321,8 +240,6 @@ git clone https://github.com/meituan/YOLOv6.git
 ```
 
 2. 修改代码, 保证动态 batch，并去除 anchor 维度
-
-
 ```python
 # ========== export_onnx.py ==========
 
@@ -417,8 +334,8 @@ python deploy/ONNX/export_onnx.py --weights yolov6s.pt --img 640 --dynamic-batch
 4. 复制模型并执行
 
 ```shell
-cp YOLOv6/yolov6s.onnx tensorRT_Pro-YOLOv8/workspace
-cd tensorRT_Pro-YOLOv8
+cp YOLOv6/yolov6s.onnx tensorRT_Pro-Vision/workspace
+cd tensorRT_Pro-Vision
 
 # 修改代码在 src/application/app_yolo.cpp: app_yolo 函数中, 使用 V6 的方式即可运行
 # test(Yolo::Type::V6, TRT::Mode::FP32, "yolov6s");
@@ -437,8 +354,6 @@ git clone https://github.com/WongKinYiu/yolov7.git
 ```
 
 2. 导出 onnx 模型
-
-
 ```shell
 python export.py --dynamic-batch --grid --simplify --weights=yolov7.pt
 ```
@@ -446,8 +361,8 @@ python export.py --dynamic-batch --grid --simplify --weights=yolov7.pt
 3. 复制模型并执行
 
 ```shell
-cp yolov7/yolov7.onnx tensorRT_Pro-YOLOv8/workspace
-cd tensorRT_Pro-YOLOv8
+cp yolov7/yolov7.onnx tensorRT_Pro-Vision/workspace
+cd tensorRT_Pro-Vision
 
 # 修改代码在 src/application/app_yolo.cpp: app_yolo 函数中, 使用 V7 的方式即可运行
 # test(Yolo::Type::V7, TRT::Mode::FP32, "yolov7");
@@ -521,8 +436,8 @@ python export.py
 4. 复制模型并执行
 
 ```shell
-cp ultralytics/yolov8s.onnx tensorRT_Pro-YOLOv8/workspace
-cd tensorRT_Pro-YOLOv8
+cp ultralytics/yolov8s.onnx tensorRT_Pro-Vision/workspace
+cd tensorRT_Pro-Vision
 make yolo -j64
 ```
 </details>
@@ -584,8 +499,8 @@ python export.py
 4. 复制模型并执行
 
 ```shell
-cp ultralytics/yolov8s-cls.onnx tensorRT_Pro-YOLOv8/workspace
-cd tensorRT_Pro-YOLOv8
+cp ultralytics/yolov8s-cls.onnx tensorRT_Pro-Vision/workspace
+cd tensorRT_Pro-Vision
 make yolo_cls -j64
 ```
 </details>
@@ -654,8 +569,8 @@ python export.py
 4. 复制模型并执行
 
 ```shell
-cp ultralytics/yolov8s-seg.onnx tensorRT_Pro-YOLOv8/workspace
-cd tensorRT_Pro-YOLOv8
+cp ultralytics/yolov8s-seg.onnx tensorRT_Pro-Vision/workspace
+cd tensorRT_Pro-Vision
 make yolo_seg -j64
 ```
 </details>
@@ -726,8 +641,8 @@ python export.py
 4. 复制模型并执行
 
 ```shell
-cp ultralytics/yolov8s-obb.onnx tensorRT_Pro-YOLOv8/workspace
-cd tensorRT_Pro-YOLOv8
+cp ultralytics/yolov8s-obb.onnx tensorRT_Pro-Vision/workspace
+cd tensorRT_Pro-Vision
 make yolo_obb -j64
 ```
 
@@ -798,8 +713,8 @@ python export.py
 4. 复制模型并执行
 
 ```shell
-cp ultralytics/yolov8s-pose.onnx tensorRT_Pro-YOLOv8/workspace
-cd tensorRT_Pro-YOLOv8
+cp ultralytics/yolov8s-pose.onnx tensorRT_Pro-Vision/workspace
+cd tensorRT_Pro-Vision
 make yolo_pose -j64
 ```
 </details>
@@ -862,12 +777,11 @@ python export.py
 
 5. engine 生成
 
-- **方案一**：替换 tensorRT_Pro-YOLOv8 中的 onnxparser 解析器，具体可参考文章：[RT-DETR推理详解及部署实现](https://blog.csdn.net/qq_40672115/article/details/134356250)
-- **方案二**：利用 **trtexec** 工具生成 engine
+**Engine 生成**：利用 `trtexec` 工具生成 engine
 
 ```shell
-cp ultralytics/yolov8s.onnx tensorRT_Pro-YOLOv8/workspace
-cd tensorRT_Pro-YOLOv8/workspace
+cp ultralytics/yolov8s.onnx tensorRT_Pro-Vision/workspace
+cd tensorRT_Pro-Vision/workspace
 bash build.sh
 ```
 
@@ -878,8 +792,6 @@ make rtdetr -j64
 ```
 
 </details>
-
-
 <details>
 <summary>RF-DETR支持</summary>
 
@@ -907,8 +819,6 @@ git clone https://github.com/roboflow/rf-detr.git
 
 import torch
 from torch import nn
-
-
 class ExportPostProcessor(nn.Module):
     """Wraps the raw LWDETR model so that sigmoid + argmax + merge are part of the ONNX graph.
 
@@ -945,8 +855,6 @@ class ExportPostProcessor(nn.Module):
 
         # Merge: [cx, cy, w, h, confidence, class_id]
         return torch.cat([pred_boxes, scores, labels], dim=-1)  # (B, 300, 6)
-
-
 class ExportRawProcessor(nn.Module):
     """Wraps LWDETR for ONNX export with raw outputs — no post-processing in the graph.
 
@@ -1098,12 +1006,11 @@ python export.py
 
 5. engine 生成
 
-- **方案一**：替换 tensorRT_Pro-YOLOv8 中的 onnxparser 解析器，具体可参考文章：[RT-DETR推理详解及部署实现](https://blog.csdn.net/qq_40672115/article/details/134356250)
-- **方案二**：利用 **trtexec** 工具生成 engine
+**Engine 生成**：利用 `trtexec` 工具生成 engine
 
 ```shell
-cp rf-detr/output/rfdetr-medium.sim.onnx tensorRT_Pro-YOLOv8/workspace/rfdetr-medium.onnx
-cd tensorRT_Pro-YOLOv8/workspace
+cp rf-detr/output/rfdetr-medium.sim.onnx tensorRT_Pro-Vision/workspace/rfdetr-medium.onnx
+cd tensorRT_Pro-Vision/workspace
 bash build.sh
 ```
 
@@ -1127,7 +1034,7 @@ make rfdetr -j64
 2. demo 演示
 
 ```shell
-cd tensorRT_Pro-YOLOv8
+cd tensorRT_Pro-Vision
 make bytetrack -j64
 ```
 
@@ -1201,8 +1108,8 @@ python export.py
 5. 复制模型并执行
 
 ```shell
-cp ultralytics/yolov9c.onnx tensorRT_Pro-YOLOv8/workspace
-cd tensorRT_Pro-YOLOv8
+cp ultralytics/yolov9c.onnx tensorRT_Pro-Vision/workspace
+cd tensorRT_Pro-Vision
 make yolo -j64
 ```
 </details>
@@ -1266,12 +1173,11 @@ python export.py
 
 5. engine 生成
 
-- **方案一**：替换 tensorRT_Pro-YOLOv8 中的 onnxparser 解析器，具体可参考文章：[RT-DETR推理详解及部署实现](https://blog.csdn.net/qq_40672115/article/details/134356250)
-- **方案二**：利用 **trtexec** 工具生成 engine
+**Engine 生成**：利用 `trtexec` 工具生成 engine
 
 ```shell
-cp yolov10-main/yolov10s.onnx tensorRT_Pro-YOLOv8/workspace
-cd tensorRT_Pro-YOLOv8/workspace
+cp yolov10-main/yolov10s.onnx tensorRT_Pro-Vision/workspace
+cd tensorRT_Pro-Vision/workspace
 # 取消 build.sh 中 yolov10 engine 生成的注释
 bash build.sh
 ```
@@ -1400,12 +1306,11 @@ python export.py
 
 6. engien 生成
 
-- **方案一**：替换 tensorRT_Pro-YOLOv8 中的 onnxparser 解析器，具体可参考文章：[RT-DETR推理详解及部署实现](https://blog.csdn.net/qq_40672115/article/details/134356250)
-- **方案二**：利用 **trtexec** 工具生成 engine
+**Engine 生成**：利用 `trtexec` 工具生成 engine
 
 ```shell
-cp mmpose/rtmo-s_8xb32-600e_body7-640x640.onnx tensorRT_Pro-YOLOv8/workspace
-cd tensorRT_Pro-YOLOv8/workspace
+cp mmpose/rtmo-s_8xb32-600e_body7-640x640.onnx tensorRT_Pro-Vision/workspace
+cd tensorRT_Pro-Vision/workspace
 # 取消 build.sh 中 rtmo engine 生成的注释
 bash build.sh
 ```
@@ -1431,7 +1336,7 @@ make rtmo -j64
 2. libcustom_layernorm.so 生成
 
 ```shell
-cd tensorRT_Pro-YOLOv8
+cd tensorRT_Pro-Vision
 mkdir build && cd build
 cmake .. && make -j64
 cp libcustom_layernorm.so ../workspace
@@ -1516,11 +1421,10 @@ git clone https://github.com/PaddlePaddle/PaddleOCR.git
 
 5. engine 生成
    
-- **方案一**：利用 **TRT::compile** 接口，HardSwish 算子解析问题可以通过插件或者替换 onnxparser 解析器解决
-- **方案二**：利用 **trtexec** 工具生成 engine (**recommend**)
+**Engine 生成**：利用 `trtexec` 工具生成 engine
 
 ```shell
-cd tensorRT_Pro-YOLOv8/workspace
+cd tensorRT_Pro-Vision/workspace
 bash ocr_build.sh
 ```
 
@@ -1688,11 +1592,10 @@ python export.py
 
 5. engine 生成
 
-- **方案一**：利用 **TRT::compile** 接口，ScatterND 算子解析问题可以通过插件或者替换 onnxparser 解析器解决
-- **方案二**：利用 **trtexec** 工具生成 engine（**recommend**）
+**Engine 生成**：利用 `trtexec` 工具生成 engine
 
 ```shell
-cd tensorRT_Pro-YOLOv8/workspace
+cd tensorRT_Pro-Vision/workspace
 bash lane_build.sh
 ```
 
@@ -1877,11 +1780,10 @@ python export.py
 
 **5.** engine 生成
 
-- **方案一**：利用 **TRT::compile** 接口，GridSample 和 LayerNormalization 算子解析问题可以通过插件或者替换 onnxparser 解析器解决
-- **方案二**：利用 **trtexec** 工具生成 engine（**recommend**）
+**Engine 生成**：利用 `trtexec` 工具生成 engine
 
 ```shell
-cd tensorRT_Pro-YOLOv8/workspace
+cd tensorRT_Pro-Vision/workspace
 bash lane_build.sh
 ```
 
@@ -2071,11 +1973,10 @@ python export.py
 
 **5.** engine 生成
 
-- **方案一**：利用 **TRT::compile** 接口，GridSample 和 LayerNormalization 算子解析问题可以通过插件或者替换 onnxparser 解析器解决
-- **方案二**：利用 **trtexec** 工具生成 engine（**recommend**）
+**Engine 生成**：利用 `trtexec` 工具生成 engine
 
 ```shell
-cd tensorRT_Pro-YOLOv8/workspace
+cd tensorRT_Pro-Vision/workspace
 bash lane_build.sh
 ```
 
@@ -2144,8 +2045,8 @@ python export.py
 4. 复制模型并执行
 
 ```shell
-cp ultralytics/yolo11s.onnx tensorRT_Pro-YOLOv8/workspace
-cd tensorRT_Pro-YOLOv8
+cp ultralytics/yolo11s.onnx tensorRT_Pro-Vision/workspace
+cd tensorRT_Pro-Vision
 make yolo -j64
 ```
 
@@ -2206,8 +2107,8 @@ python export.py
 4. 复制模型并执行
 
 ```shell
-cp ultralytics/yolo11s-cls.onnx tensorRT_Pro-YOLOv8/workspace
-cd tensorRT_Pro-YOLOv8
+cp ultralytics/yolo11s-cls.onnx tensorRT_Pro-Vision/workspace
+cd tensorRT_Pro-Vision
 make yolo_cls -j64
 ```
 
@@ -2276,8 +2177,8 @@ python export.py
 4. 复制模型并执行
 
 ```shell
-cp ultralytics/yolo11s-seg.onnx tensorRT_Pro-YOLOv8/workspace
-cd tensorRT_Pro-YOLOv8
+cp ultralytics/yolo11s-seg.onnx tensorRT_Pro-Vision/workspace
+cd tensorRT_Pro-Vision
 make yolo_seg -j64
 ```
 
@@ -2346,8 +2247,8 @@ python export.py
 4. 复制模型并执行
 
 ```shell
-cp ultralytics/yolo11s-obb.onnx tensorRT_Pro-YOLOv8/workspace
-cd tensorRT_Pro-YOLOv8
+cp ultralytics/yolo11s-obb.onnx tensorRT_Pro-Vision/workspace
+cd tensorRT_Pro-Vision
 make yolo_obb -j64
 ```
 
@@ -2417,8 +2318,8 @@ python export.py
 4. 复制模型并执行
 
 ```shell
-cp ultralytics/yolo11s-pose.onnx tensorRT_Pro-YOLOv8/workspace
-cd tensorRT_Pro-YOLOv8
+cp ultralytics/yolo11s-pose.onnx tensorRT_Pro-Vision/workspace
+cd tensorRT_Pro-Vision
 make yolo_pose -j64
 ```
 
@@ -2540,18 +2441,17 @@ python export.py --encoder vits --load_from depth_anything_vits14.pth --image_sh
 
 **6.** engine 生成
 
-- **方案一**：利用 **TRT::compile** 接口，LayerNormalization 算子解析问题可以通过插件或者替换 onnxparser 解析器解决
-- **方案二**：利用 **trtexec** 工具生成 engine（**recommend**）
+**Engine 生成**：利用 `trtexec` 工具生成 engine
 
 ```shell
-cd tensorRT_Pro-YOLOv8/workspace
+cd tensorRT_Pro-Vision/workspace
 bash depth_anything_build.sh
 ```
 
 **7.** 执行
 
 ```shell
-cd tensorRT_Pro-YOLOv8
+cd tensorRT_Pro-Vision
 make depth_anything -j64
 ```
 
@@ -2659,18 +2559,17 @@ python export.py --encoder vits --input-size 518
 
 **6.** engine 生成
 
-- **方案一**：利用 **TRT::compile** 接口，LayerNormalization 算子解析问题可以通过插件或者替换 onnxparser 解析器解决
-- **方案二**：利用 **trtexec** 工具生成 engine（**recommend**）
+**Engine 生成**：利用 `trtexec` 工具生成 engine
 
 ```shell
-cd tensorRT_Pro-YOLOv8/workspace
+cd tensorRT_Pro-Vision/workspace
 bash depth_anything_build.sh
 ```
 
 **7.** 执行
 
 ```shell
-cd tensorRT_Pro-YOLOv8
+cd tensorRT_Pro-Vision
 make depth_anything -j64
 ```
 
@@ -2739,8 +2638,8 @@ python export.py
 4. 复制模型并执行
 
 ```shell
-cp yolov12/yolov12s.onnx tensorRT_Pro-YOLOv8/workspace
-cd tensorRT_Pro-YOLOv8
+cp yolov12/yolov12s.onnx tensorRT_Pro-Vision/workspace
+cd tensorRT_Pro-Vision
 make yolo -j64
 ```
 
@@ -2814,8 +2713,8 @@ python export.py
 4. 复制模型并执行
 
 ```shell
-cp yolov13/yolov13s.onnx tensorRT_Pro-YOLOv8/workspace
-cd tensorRT_Pro-YOLOv8
+cp yolov13/yolov13s.onnx tensorRT_Pro-Vision/workspace
+cd tensorRT_Pro-Vision
 make yolo -j64
 ```
 
@@ -2884,12 +2783,11 @@ python export.py
 
 5. engine 生成
 
-- **方案一**：替换 tensorRT_Pro-YOLOv8 中的 onnxparser 解析器，具体可参考文章：[RT-DETR推理详解及部署实现](https://blog.csdn.net/qq_40672115/article/details/134356250)
-- **方案二**：利用 **trtexec** 工具生成 engine
+**Engine 生成**：利用 `trtexec` 工具生成 engine
 
 ```shell
-cp ultralytics/yolo26s.onnx tensorRT_Pro-YOLOv8/workspace
-cd tensorRT_Pro-YOLOv8/workspace
+cp ultralytics/yolo26s.onnx tensorRT_Pro-Vision/workspace
+cd tensorRT_Pro-Vision/workspace
 # 取消 build.sh 中 yolo26 engine 生成的注释
 bash build.sh
 ```
@@ -2964,8 +2862,8 @@ python export.py
 4. 复制模型并执行
 
 ```shell
-cp ultralytics/yolo26s-cls.onnx tensorRT_Pro-YOLOv8/workspace
-cd tensorRT_Pro-YOLOv8
+cp ultralytics/yolo26s-cls.onnx tensorRT_Pro-Vision/workspace
+cd tensorRT_Pro-Vision
 make yolo_cls -j64
 ```
 
@@ -3034,12 +2932,11 @@ python export.py
 
 5. engine 生成
 
-- **方案一**：替换 tensorRT_Pro-YOLOv8 中的 onnxparser 解析器，具体可参考文章：[RT-DETR推理详解及部署实现](https://blog.csdn.net/qq_40672115/article/details/134356250)
-- **方案二**：利用 **trtexec** 工具生成 engine
+**Engine 生成**：利用 `trtexec` 工具生成 engine
 
 ```shell
-cp ultralytics/yolo26s-seg.onnx tensorRT_Pro-YOLOv8/workspace
-cd tensorRT_Pro-YOLOv8/workspace
+cp ultralytics/yolo26s-seg.onnx tensorRT_Pro-Vision/workspace
+cd tensorRT_Pro-Vision/workspace
 # 取消 build.sh 中 yolo26-seg engine 生成的注释
 bash build.sh
 ```
@@ -3116,12 +3013,11 @@ python export.py
 
 5. engine 生成
 
-- **方案一**：替换 tensorRT_Pro-YOLOv8 中的 onnxparser 解析器，具体可参考文章：[RT-DETR推理详解及部署实现](https://blog.csdn.net/qq_40672115/article/details/134356250)
-- **方案二**：利用 **trtexec** 工具生成 engine
+**Engine 生成**：利用 `trtexec` 工具生成 engine
 
 ```shell
-cp ultralytics/yolo26s-obb.onnx tensorRT_Pro-YOLOv8/workspace
-cd tensorRT_Pro-YOLOv8/workspace
+cp ultralytics/yolo26s-obb.onnx tensorRT_Pro-Vision/workspace
+cd tensorRT_Pro-Vision/workspace
 # 取消 build.sh 中 yolo26-obb engine 生成的注释
 bash build.sh
 ```
@@ -3198,12 +3094,11 @@ python export.py
 
 5. engine 生成
 
-- **方案一**：替换 tensorRT_Pro-YOLOv8 中的 onnxparser 解析器，具体可参考文章：[RT-DETR推理详解及部署实现](https://blog.csdn.net/qq_40672115/article/details/134356250)
-- **方案二**：利用 **trtexec** 工具生成 engine
+**Engine 生成**：利用 `trtexec` 工具生成 engine
 
 ```shell
-cp ultralytics/yolo26s-pose.onnx tensorRT_Pro-YOLOv8/workspace
-cd tensorRT_Pro-YOLOv8/workspace
+cp ultralytics/yolo26s-pose.onnx tensorRT_Pro-Vision/workspace
+cd tensorRT_Pro-Vision/workspace
 # 取消 build.sh 中 yolo26-pose engine 生成的注释
 bash build.sh
 ```
@@ -3264,8 +3159,8 @@ python export.py
 4. 复制模型并执行
 
 ```shell
-cp ultralytics/yolo26s-sem.onnx tensorRT_Pro-YOLOv8/workspace
-cd tensorRT_Pro-YOLOv8/workspace
+cp ultralytics/yolo26s-sem.onnx tensorRT_Pro-Vision/workspace
+cd tensorRT_Pro-Vision/workspace
 make yolo_sem -j64
 ```
 
@@ -3280,15 +3175,15 @@ make yolo_sem -j64
 TRT::compile(
     mode,                       // FP32、FP16、INT8
     test_batch_size,            // max batch size
-    onnx_file,                  // source 
+    onnx_file,                  // source
     model_file,                 // save to
     {},                         // redefine the input shape
     int8process,                // the recall function for calibration
     "inference",                // the dir where the image data is used for calibration
-    ""                          // the dir where the data generated from calibration is saved(a.k.a where to load the calibration data.)
+    ""                          // the dir where the data generated from calibration is saved (a.k.a where to load the calibration data.)
 );
 ```
-* tensorRT_Pro 原编译接口, 支持 FP32、FP16、INT8 编译
+* TRT 原编译接口，支持 FP32、FP16、INT8 编译
 * 模型的编译工作也可以通过 `trtexec` 工具完成
 </details>
 
@@ -3317,6 +3212,7 @@ auto boxes = engine->commit(image).get()  // 得到的是 vector<Box>
 </details>
 
 ## 参考
+
 - [https://github.com/shouxieai/tensorRT_Pro](https://github.com/shouxieai/tensorRT_Pro)
 - [https://github.com/shouxieai/infer](https://github.com/shouxieai/infer)
 - [https://github.com/ultralytics/ultralytics](https://github.com/ultralytics/ultralytics)
