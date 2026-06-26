@@ -114,7 +114,7 @@ namespace ONNXPlugin {
 	private:																																		\
 		std::string mNamespace;																														\
 		std::string mPluginName;																													\
-		nvinfer1::PluginFieldCollection mFieldCollection{0, nullptr};																				\
+		nvinfer1::PluginFieldCollection mFieldCollection{};																				\
 	};																																				\
 	REGISTER_TENSORRT_PLUGIN(class_##PluginCreator__);
 

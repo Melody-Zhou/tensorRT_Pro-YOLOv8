@@ -1,10 +1,8 @@
 
-
 #include "trt_infer.hpp"
 #include <cuda_runtime.h>
 #include <algorithm>
 #include <NvInfer.h>
-#include <NvCaffeParser.h>
 #include <NvInferPlugin.h>
 #include <cuda_fp16.h>
 #include <common/cuda_tools.hpp>
@@ -38,10 +36,17 @@ static Logger gLogger;
 namespace TRT {
 
 	////////////////////////////////////////////////////////////////////////////////
+#if NV_TENSORRT_MAJOR >= 10
+	template<typename _T>
+	static void destroy_nvidia_pointer(_T* ptr) {
+		delete ptr;
+	}
+#else
 	template<typename _T>
 	static void destroy_nvidia_pointer(_T* ptr) {
 		if (ptr) ptr->destroy();
 	}
+#endif
 
 	class EngineContext {
 	public:
@@ -71,7 +76,11 @@ namespace TRT {
 			if (runtime_ == nullptr)
 				return false;
 
+#if NV_TENSORRT_MAJOR >= 10
+			engine_ = shared_ptr<ICudaEngine>(runtime_->deserializeCudaEngine(pdata, size), destroy_nvidia_pointer<ICudaEngine>);
+#else
 			engine_ = shared_ptr<ICudaEngine>(runtime_->deserializeCudaEngine(pdata, size, nullptr), destroy_nvidia_pointer<ICudaEngine>);
+#endif
 			if (engine_ == nullptr)
 				return false;
 
@@ -145,6 +154,7 @@ namespace TRT {
 		std::map<std::string, int> blobsNameMapper_;
 		std::shared_ptr<EngineContext> context_;
 		std::vector<void*> bindingsPtr_;
+		std::vector<std::string> orderedIOTensorNames_;
 		std::shared_ptr<MixMemory> workspace_;
 		int device_ = 0;
 	};
@@ -189,13 +199,17 @@ namespace TRT {
 			auto& tensor = outputs_[i];
 			auto& name = outputs_name_[i];
 			INFO("\t\t%d.%s : shape {%s}, %s", i, name.c_str(), tensor->shape_string(), data_type_string(tensor->type()));
-		} 
+		}
 	}
 
 	std::shared_ptr<std::vector<uint8_t>> InferImpl::serial_engine() {
 		auto memory = this->context_->engine_->serialize();
 		auto output = make_shared<std::vector<uint8_t>>((uint8_t*)memory->data(), (uint8_t*)memory->data()+memory->size());
+#if NV_TENSORRT_MAJOR >= 10
+		delete memory;
+#else
 		memory->destroy();
+#endif
 		return output;
 	}
 
@@ -255,13 +269,8 @@ namespace TRT {
 	}
 
 	void InferImpl::build_engine_input_and_outputs_mapper() {
-		
-		EngineContext* context = (EngineContext*)this->context_.get();
-		int nbBindings = context->engine_->getNbBindings();
-		// nvinfer1::Dims maxDims = context->engine_->getProfileDimensions(0, 0, nvinfer1::OptProfileSelector::kMAX);
-		// int max_batchsize = maxDims.d[0];
-		int max_batchsize = context->engine_->getMaxBatchSize();
 
+		EngineContext* context = (EngineContext*)this->context_.get();
 		inputs_.clear();
 		inputs_name_.clear();
 		outputs_.clear();
@@ -269,6 +278,59 @@ namespace TRT {
 		orderdBlobs_.clear();
 		bindingsPtr_.clear();
 		blobsNameMapper_.clear();
+		orderedIOTensorNames_.clear();
+
+#if NV_TENSORRT_MAJOR >= 10
+		int nbIO = context->engine_->getNbIOTensors();
+
+		// Get max batch size from the first input tensor's optimization profile.
+		// getTensorShape() returns the current shape (defaults to MIN, i.e. batch=1),
+		// while getProfileShape() returns the configured MAX shape from the profile.
+		int max_batchsize = 1;
+		for (int i = 0; i < nbIO; ++i) {
+			const char* tname = context->engine_->getIOTensorName(i);
+			if (context->engine_->getTensorIOMode(tname) == nvinfer1::TensorIOMode::kINPUT) {
+				auto maxDims = context->engine_->getProfileShape(tname, 0, nvinfer1::OptProfileSelector::kMAX);
+				max_batchsize = maxDims.d[0];
+				break;
+			}
+		}
+
+		for (int i = 0; i < nbIO; ++i) {
+			const char* tensorName = context->engine_->getIOTensorName(i);
+			auto dims = context->engine_->getTensorShape(tensorName);
+			auto type = context->engine_->getTensorDataType(tensorName);
+			auto ioMode = context->engine_->getTensorIOMode(tensorName);
+			// For dynamic batch dims.d[0] may be -1; use max_batchsize from the profile
+			if (dims.d[0] == -1) dims.d[0] = max_batchsize;
+			// Convert int64_t dims to int for Tensor constructor (TRT 10 uses int64_t)
+			int dims_array[nvinfer1::Dims::MAX_DIMS];
+			for (int j = 0; j < dims.nbDims; ++j) dims_array[j] = static_cast<int>(dims.d[j]);
+			auto newTensor = make_shared<Tensor>(dims.nbDims, dims_array, convert_trt_datatype(type));
+			newTensor->set_stream(this->context_->stream_);
+			newTensor->set_workspace(this->workspace_);
+			if (ioMode == nvinfer1::TensorIOMode::kINPUT) {
+				inputs_.push_back(newTensor);
+				inputs_name_.push_back(tensorName);
+				inputs_map_to_ordered_index_.push_back(orderdBlobs_.size());
+			}
+			else {
+				outputs_.push_back(newTensor);
+				outputs_name_.push_back(tensorName);
+				outputs_map_to_ordered_index_.push_back(orderdBlobs_.size());
+			}
+			blobsNameMapper_[tensorName] = i;
+			orderdBlobs_.push_back(newTensor);
+			orderedIOTensorNames_.push_back(tensorName);
+		}
+#else
+		int nbBindings = context->engine_->getNbBindings();
+		// Use getProfileDimensions instead of getMaxBatchSize() for explicit-batch engines.
+		// getMaxBatchSize() is a legacy implicit-batch API and always returns 1 for
+		// engines built with NetworkDefinitionCreationFlag::kEXPLICIT_BATCH.
+		nvinfer1::Dims maxDims = context->engine_->getProfileDimensions(0, 0, nvinfer1::OptProfileSelector::kMAX);
+		int max_batchsize = maxDims.d[0];
+
 		for (int i = 0; i < nbBindings; ++i) {
 
 			auto dims = context->engine_->getBindingDimensions(i);
@@ -279,13 +341,11 @@ namespace TRT {
 			newTensor->set_stream(this->context_->stream_);
 			newTensor->set_workspace(this->workspace_);
 			if (context->engine_->bindingIsInput(i)) {
-				//if is input
 				inputs_.push_back(newTensor);
 				inputs_name_.push_back(bindingName);
 				inputs_map_to_ordered_index_.push_back(orderdBlobs_.size());
 			}
 			else {
-				//if is output
 				outputs_.push_back(newTensor);
 				outputs_name_.push_back(bindingName);
 				outputs_map_to_ordered_index_.push_back(orderdBlobs_.size());
@@ -293,6 +353,7 @@ namespace TRT {
 			blobsNameMapper_[bindingName] = i;
 			orderdBlobs_.push_back(newTensor);
 		}
+#endif
 		bindingsPtr_.resize(orderdBlobs_.size());
 	}
 
@@ -327,6 +388,28 @@ namespace TRT {
 
 		EngineContext* context = (EngineContext*)context_.get();
 		int inputBatchSize = inputs_[0]->size(0);
+
+#if NV_TENSORRT_MAJOR >= 10
+		for (auto& name : inputs_name_) {
+			auto dims = context->engine_->getTensorShape(name.c_str());
+			dims.d[0] = inputBatchSize;
+			context->context_->setInputShape(name.c_str(), dims);
+		}
+
+		for (int i = 0; i < outputs_.size(); ++i) {
+			outputs_[i]->resize_single_dim(0, inputBatchSize);
+			outputs_[i]->to_gpu(false);
+		}
+
+		for (int i = 0; i < orderdBlobs_.size(); ++i) {
+			auto& name = orderedIOTensorNames_[i];
+			if (!context->context_->setTensorAddress(name.c_str(), orderdBlobs_[i]->gpu())) {
+				INFOF("setTensorAddress failed for tensor: %s", name.c_str());
+			}
+		}
+
+		bool execute_result = context->context_->enqueueV3(context->stream_);
+#else
 		for(int i = 0; i < context->engine_->getNbBindings(); ++i){
 			auto dims = context->engine_->getBindingDimensions(i);
 			auto type = context->engine_->getBindingDataType(i);
@@ -347,6 +430,7 @@ namespace TRT {
 		void** bindingsptr = bindingsPtr_.data();
 		//bool execute_result = context->context_->enqueue(inputBatchSize, bindingsptr, context->stream_, nullptr);
 		bool execute_result = context->context_->enqueueV2(bindingsptr, context->stream_, nullptr);
+#endif
 		if(!execute_result){
 			auto code = cudaGetLastError();
 			INFOF("execute fail, code %d[%s], message %s", code, cudaGetErrorName(code), cudaGetErrorString(code));
@@ -370,7 +454,7 @@ namespace TRT {
 	}
 
 	void InferImpl::set_input (int index, std::shared_ptr<Tensor> tensor){
-		
+
 		if(index < 0 || index >= inputs_.size()){
 			INFOF("Input index[%d] out of range [size=%d]", index, inputs_.size());
 		}
@@ -421,10 +505,20 @@ namespace TRT {
 
 	int InferImpl::get_max_batch_size() {
 		Assert(this->context_ != nullptr);
-		// nvinfer1::Dims maxDims = this->context_->engine_->getProfileDimensions(0, 0, nvinfer1::OptProfileSelector::kMAX);
-		// int max_batchsize = maxDims.d[0];
-		// return max_batchsize;
-		return this->context_->engine_->getMaxBatchSize();
+#if NV_TENSORRT_MAJOR >= 10
+		// TRT 10: getProfileShape() gets the max shape from the optimization profile.
+		// Use the first input tensor's MAX profile shape.
+		if (inputs_name_.empty()) return 1;
+		auto maxDims = this->context_->engine_->getProfileShape(
+			inputs_name_[0].c_str(), 0, nvinfer1::OptProfileSelector::kMAX);
+		return maxDims.d[0];
+#else
+		// Use getProfileDimensions instead of the legacy getMaxBatchSize().
+		// getMaxBatchSize() is for implicit-batch mode and always returns 1 for
+		// engines built with NetworkDefinitionCreationFlag::kEXPLICIT_BATCH.
+		nvinfer1::Dims maxDims = this->context_->engine_->getProfileDimensions(0, 0, nvinfer1::OptProfileSelector::kMAX);
+		return maxDims.d[0];
+#endif
 	}
 
 	std::shared_ptr<Tensor> InferImpl::tensor(const std::string& name) {
@@ -445,7 +539,7 @@ namespace TRT {
 	}
 
 	std::shared_ptr<Infer> load_infer(const string& file) {
-		
+
 		std::shared_ptr<InferImpl> Infer(new InferImpl());
 		if (!Infer->load(file))
 			Infer.reset();

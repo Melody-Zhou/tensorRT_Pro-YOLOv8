@@ -40,7 +40,6 @@ static void model_compile(TRT::Mode mode, const string& model){
             test_batch_size,            // max batch size
             onnx_file,                  // source 
             model_file,                 // save to
-            {},
             int8process
         );        
     }

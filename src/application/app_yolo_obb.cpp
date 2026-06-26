@@ -13,8 +13,6 @@ static const char* dotalabels[] = {
     "small vehicle", "helicopter", "roundabout", "soccer ball field", "swimming pool"
 };
 
-bool requires(const char* name);
-
 static void append_to_file(const string& file, const string& data){
     FILE* f = fopen(file.c_str(), "a+");
     if(f == nullptr){
@@ -138,9 +136,6 @@ static void test(YoloOBB::Type type, TRT::Mode mode, const string& model){
     const char* name = model.c_str();
     INFO("===================== test %s %s %s ==================================", YoloOBB::type_name(type), mode_name, name);
 
-    if(not requires(name))
-        return;
-    
     string onnx_file = iLogger::format("%s.onnx", name);
     string model_file = iLogger::format("%s.%s.trtmodel", name, mode_name);
     int test_batch_size = 16;
@@ -151,7 +146,6 @@ static void test(YoloOBB::Type type, TRT::Mode mode, const string& model){
             test_batch_size,            // max batch size
             onnx_file,                  // source 
             model_file,                 // save to
-            {},
             int8process,
             "inference"
         );

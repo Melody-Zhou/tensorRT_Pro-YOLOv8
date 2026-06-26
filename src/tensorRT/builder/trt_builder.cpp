@@ -4,9 +4,9 @@
 #include <cuda_runtime_api.h>
 #include <cublas_v2.h>
 #include <NvInfer.h>
+#include <NvInferVersion.h>
 #include <NvInferPlugin.h>
-//#include <NvCaffeParser.h>
-#include <onnx_parser/NvOnnxParser.h>
+#include <NvOnnxParser.h>
 #include <string>
 #include <vector>
 #include <iostream>
@@ -74,8 +74,10 @@ namespace TRT {
 			case nvinfer1::PaddingMode::kEXPLICIT_ROUND_UP: return "explicit round up";
 			case nvinfer1::PaddingMode::kSAME_UPPER: return "same supper";
 			case nvinfer1::PaddingMode::kSAME_LOWER: return "same lower";
+			#if NV_TENSORRT_MAJOR < 10
 			case nvinfer1::PaddingMode::kCAFFE_ROUND_DOWN: return "caffe round down";
 			case nvinfer1::PaddingMode::kCAFFE_ROUND_UP: return "caffe round up";
+			#endif
 		}
 		return "Unknow padding mode";
 	}
@@ -110,7 +112,9 @@ namespace TRT {
 	static string layer_type_name(nvinfer1::ILayer* layer){
 		switch(layer->getType()){
 			case nvinfer1::LayerType::kCONVOLUTION: return "Convolution";
+			#if NV_TENSORRT_MAJOR < 10
 			case nvinfer1::LayerType::kFULLY_CONNECTED: return "Fully connected";
+			#endif
 			case nvinfer1::LayerType::kACTIVATION: {
 				nvinfer1::IActivationLayer* act = (nvinfer1::IActivationLayer*)layer;
 				auto type = act->getActivationType();
@@ -136,7 +140,9 @@ namespace TRT {
 			case nvinfer1::LayerType::kMATRIX_MULTIPLY: return "Matrix multiply";
 			case nvinfer1::LayerType::kRAGGED_SOFTMAX: return "Ragged softmax";
 			case nvinfer1::LayerType::kCONSTANT: return "Constant";
+			#if NV_TENSORRT_MAJOR < 10
 			case nvinfer1::LayerType::kRNN_V2: return "RNNv2";
+			#endif
 			case nvinfer1::LayerType::kIDENTITY: return "Identity";
 			case nvinfer1::LayerType::kPLUGIN_V2: return "PluginV2";
 			case nvinfer1::LayerType::kSLICE: return "Slice";
@@ -160,10 +166,12 @@ namespace TRT {
 					conv->getNbGroups()
 				);
 			}
+			#if NV_TENSORRT_MAJOR < 10
 			case nvinfer1::LayerType::kFULLY_CONNECTED:{
 				nvinfer1::IFullyConnectedLayer* fully = (nvinfer1::IFullyConnectedLayer*)layer;
 				return format("output channels: %d", fully->getNbOutputChannels());
 			}
+			#endif
 			case nvinfer1::LayerType::kPOOLING: {
 				nvinfer1::IPoolingLayer* pool = (nvinfer1::IPoolingLayer*)layer;
 				return format(
@@ -198,7 +206,9 @@ namespace TRT {
 			case nvinfer1::LayerType::kMATRIX_MULTIPLY:
 			case nvinfer1::LayerType::kRAGGED_SOFTMAX:
 			case nvinfer1::LayerType::kCONSTANT:
+			#if NV_TENSORRT_MAJOR < 10
 			case nvinfer1::LayerType::kRNN_V2:
+			#endif
 			case nvinfer1::LayerType::kIDENTITY:
 			case nvinfer1::LayerType::kPLUGIN_V2:
 			case nvinfer1::LayerType::kSLICE:
@@ -237,10 +247,17 @@ namespace TRT {
 		return false;
 	}  
 
+#if NV_TENSORRT_MAJOR >= 10
+	template<typename _T>
+	static void destroy_nvidia_pointer(_T* ptr) {
+		delete ptr;
+	}
+#else
 	template<typename _T>
 	static void destroy_nvidia_pointer(_T* ptr) {
 		if (ptr) ptr->destroy();
 	}
+#endif
 
 	const char* mode_string(Mode type) {
 		switch (type) {
@@ -253,37 +270,6 @@ namespace TRT {
 		default:
 			return "UnknowTRTMode";
 		}
-	}
-
-	void set_layer_hook_reshape(const LayerHookFuncReshape& func){
-		register_layerhook_reshape(func);
-	}
-
-	static nvinfer1::Dims convert_to_trt_dims(const std::vector<int>& dims){
-
-		nvinfer1::Dims output{0};
-		if(dims.size() > nvinfer1::Dims::MAX_DIMS){
-			INFOE("convert failed, dims.size[%d] > MAX_DIMS[%d]", dims.size(), nvinfer1::Dims::MAX_DIMS);
-			return output;
-		}
-
-		if(!dims.empty()){
-			output.nbDims = dims.size();
-			memcpy(output.d, dims.data(), dims.size() * sizeof(int));
-		}
-		return output;
-	}
-
-	const std::vector<int>& InputDims::dims() const{
-		return dims_;
-	}
-
-	InputDims::InputDims(const std::initializer_list<int>& dims)
-		:dims_(dims){
-	}
-
-	InputDims::InputDims(const std::vector<int>& dims)
-		:dims_(dims){
 	}
 
 	ModelSource::ModelSource(const char* onnxmodel){
@@ -362,7 +348,13 @@ namespace TRT {
 				files_[i] = allimgs_[cursor_++];
 
 			if (!tensor_){
+				#if NV_TENSORRT_MAJOR >= 10
+								int dims_arr[nvinfer1::Dims::MAX_DIMS];
+								for (int j = 0; j < dims_.nbDims; ++j) dims_arr[j] = static_cast<int>(dims_.d[j]);
+								tensor_.reset(new Tensor(dims_.nbDims, dims_arr));
+				#else
 				tensor_.reset(new Tensor(dims_.nbDims, dims_.d));
+				#endif
 				tensor_->set_stream(stream_);
 				tensor_->set_workspace(make_shared<TRT::MixMemory>());
 			}
@@ -451,7 +443,13 @@ namespace TRT {
 				files_[i] = allimgs_[cursor_++];
 
 			if (!tensor_){
+				#if NV_TENSORRT_MAJOR >= 10
+								int dims_arr[nvinfer1::Dims::MAX_DIMS];
+								for (int j = 0; j < dims_.nbDims; ++j) dims_arr[j] = static_cast<int>(dims_.d[j]);
+								tensor_.reset(new Tensor(dims_.nbDims, dims_arr));
+				#else
 				tensor_.reset(new Tensor(dims_.nbDims, dims_.d));
+				#endif
 				tensor_->set_stream(stream_);
 				tensor_->set_workspace(make_shared<TRT::MixMemory>());
 			}
@@ -502,7 +500,6 @@ namespace TRT {
 		unsigned int maxBatchSize,
 		const ModelSource& source,
 		const CompileOutput& saveto,
-		std::vector<InputDims> inputsDimsSetup,
 		Int8Process int8process,
 		const std::string& int8ImageDirectory,
 		const std::string& int8CalibratorFile,
@@ -589,16 +586,9 @@ namespace TRT {
 			
 			const auto explicitBatch = 1U << static_cast<uint32_t>(nvinfer1::NetworkDefinitionCreationFlag::kEXPLICIT_BATCH);
 			network = shared_ptr<INetworkDefinition>(builder->createNetworkV2(explicitBatch), destroy_nvidia_pointer<INetworkDefinition>);
+			// Use official TensorRT ONNX parser (libnvonnxparser.so)
 
-			vector<nvinfer1::Dims> dims_setup(inputsDimsSetup.size());
-			for(int i = 0; i < inputsDimsSetup.size(); ++i){
-				auto s = inputsDimsSetup[i];
-				dims_setup[i] = convert_to_trt_dims(s.dims());
-				dims_setup[i].d[0] = -1;
-			}
-
-			//from onnx is not markOutput
-			onnxParser.reset(nvonnxparser::createParser(*network, gLogger, dims_setup), destroy_nvidia_pointer<nvonnxparser::IParser>);
+			onnxParser.reset(nvonnxparser::createParser(*network, gLogger), destroy_nvidia_pointer<nvonnxparser::IParser>);
 			if (onnxParser == nullptr) {
 				INFOE("Can not create parser.");
 				return false;
@@ -610,8 +600,8 @@ namespace TRT {
 					return false;
 				}
 			}else{
-				if (!onnxParser->parseFromData(source.onnx_data(), source.onnx_data_size(), 1)) {
-					INFOE("Can not parse OnnX file: %s", source.onnxmodel().c_str());
+				if (!onnxParser->parse(source.onnx_data(), source.onnx_data_size())) {
+					INFOE("Can not parse OnnX data from: %s", source.onnxmodel().c_str());
 					return false;
 				}
 			}
@@ -621,7 +611,6 @@ namespace TRT {
 			Assert(false);
 		}
 
-		set_layer_hook_reshape(nullptr);
 		auto inputTensor = network->getInput(0);
 		auto inputDims = inputTensor->getDimensions();
 
@@ -727,9 +716,13 @@ namespace TRT {
 				descript.c_str()
 			);
 		}
-		
+
+#if NV_TENSORRT_MAJOR >= 10
+		config->setMemoryPoolLimit(nvinfer1::MemoryPoolType::kWORKSPACE, maxWorkspaceSize);
+#else
 		builder->setMaxBatchSize(maxBatchSize);
 		config->setMaxWorkspaceSize(maxWorkspaceSize);
+#endif
 
 		auto profile = builder->createOptimizationProfile();
 		for(int i = 0; i < net_num_input; ++i){
@@ -763,11 +756,19 @@ namespace TRT {
 
 		INFO("Building engine...");
 		auto time_start = iLogger::timestamp_now();
+#if NV_TENSORRT_MAJOR >= 10
+		shared_ptr<IHostMemory> engineData(builder->buildSerializedNetwork(*network, *config), destroy_nvidia_pointer<IHostMemory>);
+		if (engineData == nullptr) {
+			INFOE("engine is nullptr");
+			return false;
+		}
+#else
 		shared_ptr<ICudaEngine> engine(builder->buildEngineWithConfig(*network, *config), destroy_nvidia_pointer<ICudaEngine>);
 		if (engine == nullptr) {
 			INFOE("engine is nullptr");
 			return false;
 		}
+#endif
 
 		if (mode == Mode::INT8) {
 			if (!hasCalibrator) {
@@ -787,7 +788,16 @@ namespace TRT {
 		}
 
 		INFO("Build done %lld ms !", iLogger::timestamp_now() - time_start);
-		
+
+#if NV_TENSORRT_MAJOR >= 10
+		// buildSerializedNetwork already returns serialized data
+		if(saveto.type() == CompileOutputType::File){
+			return iLogger::save_file(saveto.file(), engineData->data(), engineData->size());
+		}else{
+			((CompileOutput&)saveto).set_data(vector<uint8_t>((uint8_t*)engineData->data(), (uint8_t*)engineData->data()+engineData->size()));
+			return true;
+		}
+#else
 		// serialize the engine, then close everything down
 		shared_ptr<IHostMemory> seridata(engine->serialize(), destroy_nvidia_pointer<IHostMemory>);
 		if(saveto.type() == CompileOutputType::File){
@@ -796,5 +806,6 @@ namespace TRT {
 			((CompileOutput&)saveto).set_data(vector<uint8_t>((uint8_t*)seridata->data(), (uint8_t*)seridata->data()+seridata->size()));
 			return true;
 		}
+#endif
 	}
 }; //namespace TRTBuilder

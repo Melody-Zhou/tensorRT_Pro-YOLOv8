@@ -11,7 +11,6 @@
 using namespace cv;
 using namespace std;
 
-bool requires(const char* name);
 static const char* cocolabels[] = {
     "person", "bicycle", "car", "motorcycle", "airplane",
     "bus", "train", "truck", "boat", "traffic light", "fire hydrant",
@@ -35,8 +34,6 @@ static bool compile_models(){
 
     const char* onnx_files[]{"yolov8s"};
     for(auto& name : onnx_files){
-        if(not requires(name))
-            return false;
 
         string onnx_file = iLogger::format("%s.onnx", name);
         string model_file = iLogger::format("%s.FP32.trtmodel", name);
@@ -107,11 +104,11 @@ static void test_video(){
             cv::putText(frame, caption, cv::Point(tlwh[0], tlwh[1] - 5), 0, 1, cv::Scalar::all(0), 2, 16);
         }
         // remote_show->post(img);
-        cv::imshow("frame", frame);
-        int key = cv::waitKey(10);
-        if(key == 27)
-            break;
-        // writer.write(frame);        
+        // cv::imshow("frame", frame);
+        // int key = cv::waitKey(10);
+        // if(key == 27)
+        //     break;
+        writer.write(frame);        
     }
     
     // char end_signal = 'x';

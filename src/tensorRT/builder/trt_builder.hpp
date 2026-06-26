@@ -11,7 +11,6 @@
 namespace TRT {
 
 	typedef std::function<void(int current, int count, const std::vector<std::string>& files, std::shared_ptr<Tensor>& tensor)> Int8Process;
-	typedef std::function<std::vector<int64_t>(const std::string& name, const std::vector<int64_t>& shape)> LayerHookFuncReshape;
 
 	enum class ModelSourceType : int{
 		OnnX,
@@ -74,20 +73,6 @@ namespace TRT {
 		std::string file_;
 	};
 
-	class InputDims {
-	public:
-		InputDims() = default;
-		
-		// 当为-1时，保留导入时的网络结构尺寸
-		InputDims(const std::initializer_list<int>& dims);
-		InputDims(const std::vector<int>& dims);
-
-		const std::vector<int>& dims() const;
-
-	private:
-		std::vector<int> dims_;
-	};
-
 	enum class Mode : int {
 		FP32,
 		FP16,
@@ -101,14 +86,12 @@ namespace TRT {
 
 	const char* mode_string(Mode type);
 
-	void set_layer_hook_reshape(const LayerHookFuncReshape& func);
-
 	/** 当处于INT8模式时，int8process必须制定
 	     int8ImageDirectory和int8EntropyCalibratorFile指定一个即可
 	     如果初次生成，指定了int8EntropyCalibratorFile，calibrator会保存到int8EntropyCalibratorFile指定的文件
 	     如果已经生成过，指定了int8EntropyCalibratorFile，calibrator会从int8EntropyCalibratorFile指定的文件加载，而不是
 	          从int8ImageDirectory读取图片再重新生成
-		当处于FP32或者FP16时，int8process、int8ImageDirectory、int8EntropyCalibratorFile都不需要指定 
+		当处于FP32或者FP16时，int8process、int8ImageDirectory、int8EntropyCalibratorFile都不需要指定
 		对于嵌入式设备，请把maxWorkspaceSize设置小一点，比如128MB = 1ul << 27
 	**/
 	bool compile(
@@ -116,7 +99,6 @@ namespace TRT {
 		unsigned int maxBatchSize,
 		const ModelSource& source,
 		const CompileOutput& saveto,
-		const std::vector<InputDims> inputsDimsSetup = {},
 		Int8Process int8process = nullptr,
 		const std::string& int8ImageDirectory = "",
 		const std::string& int8EntropyCalibratorFile = "",

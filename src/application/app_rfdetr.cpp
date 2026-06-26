@@ -38,8 +38,6 @@ static const char* get_coco_class_name(int cls_id){
     return buf;
 }
 
-bool requires(const char* name);
-
 static void append_to_file(const string& file, const string& data){
     FILE* f = fopen(file.c_str(), "a+");
     if(f == nullptr){
@@ -148,9 +146,6 @@ static void test(TRT::Mode mode, const string& model){
     const char* name = model.c_str();
     INFO("===================== test RF-DETR %s %s ==================================", mode_name, name);
 
-    if(not requires(name))
-        return;
-
     string onnx_file = iLogger::format("%s.onnx", name);
     string model_file = iLogger::format("%s.%s.trtmodel", name, mode_name);
     int test_batch_size = 1;
@@ -161,7 +156,6 @@ static void test(TRT::Mode mode, const string& model){
             test_batch_size,            // max batch size
             onnx_file,                  // source
             model_file,                 // save to
-            {},
             int8process,
             "inference"
         );
