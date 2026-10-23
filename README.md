@@ -7,6 +7,7 @@
 
 <p>
   <a href="#quick-start">快速开始</a> ·
+  <a href="#model-download">模型下载</a> ·
   <a href="#supported-tasks">支持任务</a> ·
   <a href="#panorama">任务全景</a> ·
   <a href="#architecture">架构设计</a> ·
@@ -52,6 +53,14 @@ cd workspace && ./pro <task_name>
 
 部分任务会在首次运行时自动从 ONNX 构建 TensorRT engine，其余任务通过 `workspace/*_build.sh` 生成；完整的依赖版本、Makefile/CMake 配置与各任务模型导出步骤见 [环境配置](#environment) 和 [任务文档](#tasks)。
 
+<a id="model-download" name="model-download"></a>
+
+## 模型下载
+
+ONNX 测试模型包：[Baidu Drive](https://pan.baidu.com/s/1MbPYzUEkONsjCPOudiTt1A?pwd=onnx)（提取码 `onnx`）
+
+下载后放入 `workspace/`，执行 `./pro <task_name>`；如未找到所需模型，请按 [任务文档](#tasks) 自行导出。
+
 ## Why this repo
 
 - **20+ 模型，一个可执行文件**：`workspace/pro` 通过任务名切换模型，无需为每个任务维护独立工程。
@@ -82,7 +91,7 @@ cd workspace && ./pro <task_name>
 ## 任务全景
 
 <div align="center">
-  <img src="./assets/banner.jpg" width="80%" alt="tensorRT_Pro-Vision 任务全景">
+  <img src="./assets/banner.jpg" width="100%" alt="tensorRT_Pro-Vision 任务全景">
   <br>
   <sub>检测 · 分类 · 分割 · 姿态 · OBB · 深度 · OCR · 车道线 · 跟踪</sub>
 </div>
@@ -190,6 +199,15 @@ cmake .. && make -j$(nproc)
 
 ## 各项任务支持
 
+按模型系列分组，点击系列标题展开；每个模型仍可单独折叠。
+
+[YOLO 经典](#docs-yolo-classic) · [YOLOv8](#docs-yolov8) · [YOLOv9–v11](#docs-yolo9-11) · [YOLOv12/v13](#docs-yolo12-13) · [YOLO26](#docs-yolo26) · [DETR](#docs-detr) · [深度估计](#docs-depth) · [OCR](#docs-ocr) · [车道线](#docs-lane) · [姿态与跟踪](#docs-pose-track) · [自定义插件](#docs-plugins)
+
+<a id="docs-yolo-classic" name="docs-yolo-classic"></a>
+
+<details>
+<summary><b>YOLO 经典系列</b> · YOLOv3 / YOLOX / YOLOv5 / YOLOv6 / YOLOv7</summary>
+
 <details>
 <summary>YOLOv3支持</summary>
 
@@ -215,7 +233,7 @@ git clone https://github.com/ultralytics/yolov3.git
 #             dynamic['output0'] = {0: 'batch', 1: 'anchors'}  # shape(1,25200,85)
 # 修改为：
 
-output_names = ['output0', 'output1'] if isinstance(model, SegmentationModel) else ['output']            
+output_names = ['output0', 'output1'] if isinstance(model, SegmentationModel) else ['output']
 if dynamic:
     dynamic = {'images': {0: 'batch'}}  # shape(1,3,640,640)
     if isinstance(model, SegmentationModel):
@@ -302,7 +320,7 @@ git clone https://github.com/ultralytics/yolov5.git
 #             dynamic['output0'] = {0: 'batch', 1: 'anchors'}  # shape(1,25200,85)
 # 修改为：
 
-output_names = ['output0', 'output1'] if isinstance(model, SegmentationModel) else ['output']            
+output_names = ['output0', 'output1'] if isinstance(model, SegmentationModel) else ['output']
 if dynamic:
     dynamic = {'images': {0: 'batch'}}  # shape(1,3,640,640)
     if isinstance(model, SegmentationModel):
@@ -453,7 +471,7 @@ make yolo -j64
 1. 下载 YOLOv7
 
 ```shell
-git clone https://github.com/WongKinYiu/yolov7.git 
+git clone https://github.com/WongKinYiu/yolov7.git
 ```
 
 2. 导出 onnx 模型
@@ -474,6 +492,13 @@ make yolo -j64
 ```
 
 </details>
+
+</details>
+
+<a id="docs-yolov8" name="docs-yolov8"></a>
+
+<details>
+<summary><b>YOLOv8 系列</b> · Det / Cls / Seg / OBB / Pose</summary>
 
 <details>
 <summary>YOLOv8支持</summary>
@@ -822,332 +847,18 @@ make yolo_pose -j64
 ```
 </details>
 
-<details>
-<summary>RT-DETR支持</summary>
-
-1. 前置条件
-
-- **tensorRT >= 8.6**
-
-2. 下载 YOLOv8
-
-```shell
-git clone https://github.com/ultralytics/ultralytics.git
-```
-
-3. 修改代码, 保证动态 batch
-
-```python
-# ========== exporter.py ==========
-
-# ultralytics/engine/exporter.py第323行
-# output_names = ['output0', 'output1'] if isinstance(self.model, SegmentationModel) else ['output0']
-# dynamic = self.args.dynamic
-# if dynamic:
-#     dynamic = {'images': {0: 'batch', 2: 'height', 3: 'width'}}  # shape(1,3,640,640)
-#     if isinstance(self.model, SegmentationModel):
-#         dynamic['output0'] = {0: 'batch', 2: 'anchors'}  # shape(1, 116, 8400)
-#         dynamic['output1'] = {0: 'batch', 2: 'mask_height', 3: 'mask_width'}  # shape(1,32,160,160)
-#     elif isinstance(self.model, DetectionModel):
-#         dynamic['output0'] = {0: 'batch', 2: 'anchors'}  # shape(1, 84, 8400)
-# 修改为：
-
-output_names = ['output0', 'output1'] if isinstance(self.model, SegmentationModel) else ['output']
-dynamic = self.args.dynamic
-if dynamic:
-    dynamic = {'images': {0: 'batch'}}  # shape(1,3,640,640)
-    if isinstance(self.model, SegmentationModel):
-        dynamic['output0'] = {0: 'batch', 2: 'anchors'}  # shape(1, 116, 8400)
-        dynamic['output1'] = {0: 'batch', 2: 'mask_height', 3: 'mask_width'}  # shape(1,32,160,160)
-    elif isinstance(self.model, DetectionModel):
-        dynamic['output'] = {0: 'batch'}  # shape(1, 84, 8400)
-```
-
-4. 导出 onnx 模型，在 ultralytics-main 新建导出文件 `export.py` 内容如下（可能会由于 torch 版本问题导出失败, 具体可参考 [#6144](https://github.com/ultralytics/ultralytics/issues/6144)）
-
-```python
-from ultralytics import RTDETR
-
-model = RTDETR("rtdetr-l.pt")
-
-success = model.export(format="onnx", dynamic=True, simplify=True)
-```
-
-```shell
-cd ultralytics-main
-python export.py
-```
-
-5. engine 生成
-
-**Engine 生成**：利用 `trtexec` 工具生成 engine
-
-```shell
-cp ultralytics/yolov8s.onnx tensorRT_Pro-Vision/workspace
-cd tensorRT_Pro-Vision/workspace
-bash build.sh
-```
-
-6. 执行
-
-```shell
-make rtdetr -j64
-```
-
-</details>
-<details>
-<summary>RF-DETR支持</summary>
-
-1. 前置条件
-
-- **tensorRT >= 8.6**
-
-2. 下载 RF-DETR
-
-```shell
-git clone https://github.com/roboflow/rf-detr.git
-```
-
-3. 修改代码，将后处理塞进 ONNX 计算图
-
-- **step 1.** 在 `rf-detr/src/rfdetr/export/_onnx` 文件夹下新建 **post_process.py**，内容如下：
-
-```python
-# ------------------------------------------------------------------------
-# RF-DETR
-# Copyright (c) 2025 Roboflow. All Rights Reserved.
-# Licensed under the Apache License, Version 2.0 [see LICENSE for details]
-# ------------------------------------------------------------------------
-"""Lightweight wrapper that embeds post-processing into the ONNX graph for deployment."""
-
-import torch
-from torch import nn
-class ExportPostProcessor(nn.Module):
-    """Wraps the raw LWDETR model so that sigmoid + argmax + merge are part of the ONNX graph.
-
-    The wrapped model's ``forward()`` produces a single tensor that is ready for threshold filtering
-    at the caller side — no additional CUDA kernels are needed for post-processing.
-
-    Input:
-        images: (B, 3, H, W) float32, already resized and normalized.
-
-    Output:
-        output: (B, 300, 6) where the last dim is ``[cx, cy, w, h, confidence, class_id]``.
-    """
-
-    def __init__(self, model: nn.Module) -> None:
-        super().__init__()
-        self.model = model
-
-    def forward(self, images: torch.Tensor) -> torch.Tensor:
-        outputs = self.model(images)
-
-        # forward_export() returns a tuple (boxes, logits, ...); standard forward() returns a dict.
-        if isinstance(outputs, tuple):
-            pred_boxes = outputs[0]
-            pred_logits = outputs[1]
-        else:
-            pred_boxes = outputs["pred_boxes"]
-            pred_logits = outputs["pred_logits"]
-
-        # Sigmoid → per-query argmax to select the best class.
-        probs = pred_logits.sigmoid()           # (B, 300, 91)
-        scores, labels = probs.max(dim=-1)       # (B, 300), (B, 300)
-        labels = labels.float().unsqueeze(-1)    # (B, 300, 1)
-        scores = scores.unsqueeze(-1)            # (B, 300, 1)
-
-        # Merge: [cx, cy, w, h, confidence, class_id]
-        return torch.cat([pred_boxes, scores, labels], dim=-1)  # (B, 300, 6)
-class ExportRawProcessor(nn.Module):
-    """Wraps LWDETR for ONNX export with raw outputs — no post-processing in the graph.
-
-    Use this to isolate whether FP16 issues come from post-processing fusion or the main network.
-
-    Input:
-        images: (B, 3, H, W) float32
-
-    Output:
-        pred_boxes:  (B, 300, 4)   cxcywh, normalized [0,1]
-        pred_logits: (B, 300, 91)  raw class logits
-    """
-
-    def __init__(self, model: nn.Module) -> None:
-        super().__init__()
-        self.model = model
-
-    def forward(self, images: torch.Tensor) -> tuple[torch.Tensor, torch.Tensor]:
-        outputs = self.model(images)
-        if isinstance(outputs, tuple):
-            return outputs[0], outputs[1]
-        else:
-            return outputs["pred_boxes"], outputs["pred_logits"]
-```
-
-- **step 2.** 在 `rf-detr/src/rfdetr/detr.py` 文件的 1133 行也就是 **export()** 函数后面新增如下函数：
-
-```python
-def export_for_deployment(
-    self,
-    output_dir: str = "output",
-    shape: tuple[int, int] | None = None,
-    batch_size: int = 1,
-    opset_version: int = 17,
-    simplify: bool = True,
-    dynamic_batch: bool = False,
-    patch_size: int | None = None,
-) -> Path:
-    """Export ONNX with embedded post-processing for TensorRT deployment.
-
-    Produces a single ONNX file where sigmoid, argmax, and box-label merging are baked into the
-    graph.  The caller only needs to resize, normalise, and run the model — the output is ready for
-    threshold filtering without any additional CUDA kernels.
-
-    Args:
-        output_dir: Directory to write the exported ONNX model.
-        shape: ``(height, width)`` tuple; defaults to ``(model.resolution, model.resolution)``.
-        batch_size: Static batch size baked into the ONNX graph.
-        opset_version: ONNX opset version to target.
-        simplify: Whether to run ``onnxsim`` on the exported graph.
-        patch_size: Backbone patch size. Defaults to ``model_config.patch_size``.
-
-    Returns:
-        Path to the exported ``.onnx`` file.
-    """
-    from copy import deepcopy
-
-    from rfdetr.export._onnx.post_process import ExportPostProcessor
-    from rfdetr.export.main import make_infer_image
-
-    patch_size = _resolve_patch_size(patch_size, self.model_config, "export_for_deployment")
-    num_windows = getattr(self.model_config, "num_windows", 1)
-    if isinstance(num_windows, bool) or not isinstance(num_windows, int) or num_windows <= 0:
-        raise ValueError(f"num_windows must be a positive integer, got {num_windows!r}")
-    block_size = patch_size * num_windows
-
-    if shape is None:
-        shape = (self.model.resolution, self.model.resolution)
-        if shape[0] % block_size != 0:
-            raise ValueError(
-                f"Model's default resolution ({self.model.resolution}) is not divisible by "
-                f"block_size={block_size} (patch_size={patch_size} * num_windows={num_windows}). "
-                f"Provide an explicit shape divisible by {block_size}.",
-            )
-    else:
-        shape = _validate_shape_dims(shape, block_size, patch_size, num_windows)
-
-    device = self.model.device
-    self.model.model = self.model.model.to("cpu")
-    model = deepcopy(self.model.model)
-    model.to(device)
-    try:
-        os.makedirs(output_dir, exist_ok=True)
-
-        input_tensors = make_infer_image(
-            None, shape, batch_size, device, num_channels=self.model_config.num_channels
-        ).to(device)
-
-        # Wrap with post-processing so sigmoid + argmax are baked into the ONNX graph.
-        # Must call model.export() first to disable anti-alias upsampling (incompatible with ONNX).
-        if hasattr(model, "export"):
-            model.export()
-        wrapped = ExportPostProcessor(model)
-        wrapped.eval()
-
-        input_names = ["images"]
-        output_names = ["output"]
-
-        dynamic_axes = {"images": {0: "batch"}, "output": {0: "batch"}} if dynamic_batch else None
-
-        export_kwargs = {}
-        if "dynamo" in __import__("inspect").signature(torch.onnx.export).parameters:
-            export_kwargs["dynamo"] = False
-
-        output_file = os.path.join(output_dir, f"{getattr(self, 'size', 'inference_model')}.onnx")
-        torch.onnx.export(
-            wrapped,
-            input_tensors,
-            output_file,
-            input_names=input_names,
-            output_names=output_names,
-            export_params=True,
-            keep_initializers_as_inputs=False,
-            do_constant_folding=True,
-            verbose=False,
-            opset_version=opset_version,
-            dynamic_axes=dynamic_axes,
-            **export_kwargs,
-        )
-
-        logger.info(f"Successfully exported ONNX model to: {output_file}")
-
-        if simplify:
-            from rfdetr.export._onnx.exporter import onnx_simplify
-
-            onnx_simplify(output_file, input_names=["images"], input_tensors=input_tensors)
-
-        logger.info("Export for deployment completed successfully")
-        return Path(output_file)
-    finally:
-        self.model.model = self.model.model.to(device)
-```
-
-4. 导出 onnx 模型，在 rf-detr 新建导出文件 `export.py` 内容如下：
-
-```python
-from rfdetr import RFDETRMedium
-
-model = RFDETRMedium(pretrain_weights="./checkpoint_best_regular.pth")
-
-# Export with embedded post-processing (sigmoid+argmax+concat)
-model.export_for_deployment(output_dir="output", shape=(576, 576))
-```
-
-```shell
-cd rf-detr
-python export.py
-```
-
-5. engine 生成
-
-**Engine 生成**：利用 `trtexec` 工具生成 engine
-
-```shell
-cp rf-detr/output/rfdetr-medium.sim.onnx tensorRT_Pro-Vision/workspace/rfdetr-medium.onnx
-cd tensorRT_Pro-Vision/workspace
-bash build.sh
-```
-
-6. 执行
-
-```shell
-make rfdetr -j64
-```
-
 </details>
 
+<a id="docs-yolo9-11" name="docs-yolo9-11"></a>
+
 <details>
-<summary>ByteTrack支持</summary>
-
-1. 说明
-
-代码 copy 自：[https://github.com/CYYAI/AiInfer/tree/main/utils/tracker/ByteTracker](https://github.com/CYYAI/AiInfer/tree/main/utils/tracker/ByteTracker)
-
-以 YOLOv8 作为检测器实现基本跟踪功能（其它检测器也行）
-
-2. demo 演示
-
-```shell
-cd tensorRT_Pro-Vision
-make bytetrack -j64
-```
-
-</details>
+<summary><b>YOLOv9 / v10 / v11 系列</b> · YOLOv9 / v10 / YOLO11（含 Cls / Seg / OBB / Pose）</summary>
 
 <details>
 <summary>YOLOv9支持</summary>
 
 1. 说明
-   
+
 本项目的 YOLOv9 部署实现并不是官方原版，而是采用的集成到 ultralytics 的 YOLOv9
 
 2. 下载 YOLOv8
@@ -1289,798 +1000,6 @@ bash build.sh
 
 ```shell
 make yolo -j64
-```
-
-</details>
-
-<details>
-
-<summary>RTMO支持</summary>
-
-1. 前置条件
-
-- **tensorRT >= 8.6**
-
-2. RTMO 导出环境搭建
-
-```shell
-conda create -n mmpose python=3.9
-conda activate mmpose
-pip install torch==2.0.1 torchvision==0.15.2 torchaudio==2.0.2 --index-url https://download.pytorch.org/whl/cu118
-pip install -U openmim
-mim install mmengine
-mim install "mmcv>=2.0.0rc2"
-mim install "mmpose>=1.1.0"
-pip install mmdeploy==1.3.1
-pip install mmdeploy-runtime==1.3.1
-```
-
-3. 项目克隆
-
-```shell
-git clone https://github.com/open-mmlab/mmpose.git
-```   
-
-4. 预训练权重下载
-
-- 参考：[https://github.com/open-mmlab/mmpose/tree/main/projects/rtmo-model-zoo](https://github.com/open-mmlab/mmpose/tree/main/projects/rtmo#%EF%B8%8F-model-zoo)
-
-5. 导出 onnx 模型，在 mmpose-main 新建导出文件 `export.py` 内容如下：
-
-```python
-import torch
-from mmpose.apis import init_model
-from mmpose.structures.bbox import bbox_xyxy2cs
-
-class MyModel(torch.nn.Module):
-    def __init__(self) -> None:
-        super().__init__()
-        self.model = init_model(config_file, checkpoint_file, device=device)
-        test_cfg = {'input_size': (640, 640)}
-        self.model.neck.switch_to_deploy(test_cfg)
-        self.model.head.switch_to_deploy(test_cfg)
-        self.model.head.dcc.switch_to_deploy(test_cfg)
-
-    def forward(self, x):
-        x = self.model.backbone(x)
-        x = self.model.neck(x)
-        cls_scores, bbox_preds, _, kpt_vis, pose_vecs = self.model.head(x)[:5]
-        scores = self.model.head._flatten_predictions(cls_scores).sigmoid()
-        flatten_bbox_preds = self.model.head._flatten_predictions(bbox_preds)
-        flatten_pose_vecs  = self.model.head._flatten_predictions(pose_vecs)
-        flatten_kpt_vis    = self.model.head._flatten_predictions(kpt_vis).sigmoid()
-        bboxes = self.model.head.decode_bbox(flatten_bbox_preds, self.model.head.flatten_priors,
-                                             self.model.head.flatten_stride)
-        dets      = torch.cat([bboxes, scores], dim=2)
-        grids     = self.model.head.flatten_priors
-        bbox_cs   = torch.cat(bbox_xyxy2cs(dets[..., :4], self.model.head.bbox_padding), dim=-1)
-        keypoints = self.model.head.dcc.forward_test(flatten_pose_vecs, bbox_cs, grids)
-        pred_kpts = torch.cat([keypoints, flatten_kpt_vis.unsqueeze(-1)], dim=-1)
-        bs, bboxes, ny, nx = map(int, pred_kpts.shape)
-        bs = -1
-        pred_kpts = pred_kpts.view(bs, bboxes, ny*nx)
-        return torch.cat([dets, pred_kpts], dim=2)
-
-if __name__ == "__main__":
-
-    device = "cpu"
-    config_file     = "configs/body_2d_keypoint/rtmo/body7/rtmo-s_8xb32-600e_body7-640x640.py"
-    checkpoint_file = "rtmo-s_8xb32-600e_body7-640x640-dac2bf74_20231211.pth"
-
-    model = MyModel()
-    model.eval()
-
-    x = torch.zeros(1, 3, 640, 640, device=device)
-    dynamic_batch = {'images': {0: 'batch'}, 'output': {0: 'batch'}}
-    torch.onnx.export(
-        model,
-        (x,),
-        "rtmo-s_8xb32-600e_body7-640x640.onnx",
-        input_names=["images"],
-        output_names=["output"],
-        opset_version=17,
-        dynamic_axes=dynamic_batch
-    )
-
-    # Checks
-    import onnx
-    model_onnx = onnx.load("rtmo-s_8xb32-600e_body7-640x640.onnx")
-    # onnx.checker.check_model(model_onnx)    # check onnx model
-
-    # Simplify
-    try:
-        import onnxsim
-
-        print(f"simplifying with onnxsim {onnxsim.__version__}...")
-        model_onnx, check = onnxsim.simplify(model_onnx)
-        assert check, "Simplified ONNX model could not be validated"
-    except Exception as e:
-        print(f"simplifier failure: {e}")
-
-    onnx.save(model_onnx, "rtmo-s_8xb32-600e_body7-640x640.onnx")
-    print(f"simplify done.")
-```
-
-```shell
-cd mmpose-main
-conda activate mmpose
-python export.py
-```
-
-6. engien 生成
-
-**Engine 生成**：利用 `trtexec` 工具生成 engine
-
-```shell
-cp mmpose/rtmo-s_8xb32-600e_body7-640x640.onnx tensorRT_Pro-Vision/workspace
-cd tensorRT_Pro-Vision/workspace
-# 取消 build.sh 中 rtmo engine 生成的注释
-bash build.sh
-```
-
-7. 执行
-
-```shell
-make rtmo -j64
-```
-
-</details>
-
-<details>
-
-<summary>LayerNorm Plugin支持</summary>
-
-1. 说明
-
-* 当需要在低版本的 tensorRT 中解析 LayerNorm 算子时可以通过该插件支持
-* LayerNorm 插件实现代码 copy 自 [CUDA-BEVFusion/src/plugins/custom_layernorm.cu](https://github.com/NVIDIA-AI-IOT/Lidar_AI_Solution/blob/master/CUDA-BEVFusion/src/plugins/custom_layernorm.cu)，代码进行了略微修改
-* LayerNorm 插件的封装在推理时存在一些问题，因此并未使用
-
-2. libcustom_layernorm.so 生成
-
-```shell
-cd tensorRT_Pro-Vision
-mkdir build && cd build
-cmake .. && make -j64
-cp libcustom_layernorm.so ../workspace
-```
-
-3. ONNX 模型修改（RTMO 为例说明，其它模型类似）
-
-利用 onnx_graphsurgeon 修改原始 LayerNorm 的 op_type，代码如下：
-
-```python
-import onnx
-import onnx_graphsurgeon as gs
-
-# 加载 ONNX 模型
-input_model_path = "rtmo-s_8xb32-600e_body7-640x640.onnx"
-output_model_path = "rtmo-s_8xb32-600e_body7-640x640.plugin.onnx"
-graph = gs.import_onnx(onnx.load(input_model_path))
-
-# 遍历图中的所有节点
-for node in graph.nodes:
-    if node.op == "LayerNormalization":
-        node.op = "CustomLayerNormalization"
-        # 添加自定义属性
-        node.attrs["name"] = "LayerNormPlugin"
-        node.attrs["info"] = "This is custom LayerNormalization node"
-
-# 删除无用的节点和张量
-graph.cleanup()
-
-# 导出修改后的模型
-onnx.save(gs.export_onnx(graph), output_model_path)
-```
-
-4. engine 生成
-
-利用 **trtexec** 工具加载插件解析 ONNX，新建 build.sh 脚本文件并执行，内容如下：
-
-```shell
-#! /usr/bin/bash
-
-TRTEXEC=/home/jarvis/lean/TensorRT-8.5.1.7/bin/trtexec
-
-# export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:/home/jarvis/lean/TensorRT-8.5.1.7/lib
-
-${TRTEXEC} \
-  --onnx=rtmo-s_8xb32-600e_body7-640x640.plugin.onnx \
-  --plugins=libcustom_layernorm.so \
-  --minShapes=images:1x3x640x640 \
-  --optShapes=images:1x3x640x640 \
-  --maxShapes=images:4x3x640x640 \
-  --memPoolSize=workspace:2048 \
-  --saveEngine=rtmo-s_8xb32-600e_body7-640x640.plugin.FP32.trtmodel \
-  > trtexec_output.log 2>&1
-```
-
-</details>
-
-<details>
-<summary>PP-OCRv4支持</summary>
-
-1. 导出环境搭建
-
-```shell
-conda create --name paddleocr python=3.9
-conda activate paddleocr
-pip install shapely scikit-image imgaug pyclipper lmdb tqdm numpy==1.26.4 rapidfuzz onnxruntime
-pip install "opencv-python<=4.6.0.66" "opencv-contrib-python<=4.6.0.66" cython "Pillow>=10.0.0" pyyaml requests
-pip install paddlepaddle paddleocr paddle2onnx
-```
-
-2. 项目克隆
-
-```shell
-git clone https://github.com/PaddlePaddle/PaddleOCR.git
-```
-
-3. 预训练权重下载
-
-- 参考：[🛠️ PP-OCR 系列模型列表（更新中）](https://github.com/PaddlePaddle/PaddleOCR?tab=readme-ov-file#%EF%B8%8F-pp-ocr-%E7%B3%BB%E5%88%97%E6%A8%A1%E5%9E%8B%E5%88%97%E8%A1%A8%E6%9B%B4%E6%96%B0%E4%B8%AD)
-
-4. 导出 onnx 模型，具体流程请参考：[PaddleOCR-PP-OCRv4推理详解及部署实现（上）](https://blog.csdn.net/qq_40672115/article/details/140571346)
-
-5. engine 生成
-   
-**Engine 生成**：利用 `trtexec` 工具生成 engine
-
-```shell
-cd tensorRT_Pro-Vision/workspace
-bash ocr_build.sh
-```
-
-6. 执行
-
-```shell
-make ppocr -j64
-```
-
-</details>
-
-<details>
-<summary>LaneATT支持</summary>
-
-1. 导出环境搭建
-
-```shell
-conda create -n laneatt python=3.10
-conda activate laneatt
-pip install torch==2.0.1 torchvision==0.15.2 torchaudio==2.0.2
-pip install pyyaml opencv-python scipy imgaug numpy==1.26.4 tqdm p_tqdm ujson scikit-learn tensorboard
-pip install onnx onnxruntime onnx-simplifier
-```
-
-2. 项目克隆
-
-```shell
-git clone https://github.com/lucastabelini/LaneATT.git
-```
-
-3. 预训练权重下载
-
-```shell
-gdown "https://drive.google.com/uc?id=1R638ou1AMncTCRvrkQY6I-11CPwZy23T" # main experiments on TuSimple, CULane and LLAMAS (1.3 GB)
-unzip laneatt_experiments.zip
-```
-
-4. 导出 onnx 模型，在 laneatt-main 新建导出文件 `export.py` 内容如下：
-
-```python
-import torch
-from lib.models.laneatt import LaneATT
-
-class LaneATTONNX(torch.nn.Module):
-    def __init__(self, model):
-        super(LaneATTONNX, self).__init__()
-        # Params
-        self.fmap_h = model.fmap_h  # 11
-        self.fmap_w = model.fmap_w  # 20
-        self.anchor_feat_channels = model.anchor_feat_channels  # 64
-        self.anchors = model.anchors
-        self.cut_xs = model.cut_xs
-        self.cut_ys = model.cut_ys
-        self.cut_zs = model.cut_zs
-        self.invalid_mask = model.invalid_mask
-        # Layers
-        self.feature_extractor = model.feature_extractor
-        self.conv1 = model.conv1
-        self.cls_layer = model.cls_layer
-        self.reg_layer = model.reg_layer
-        self.attention_layer = model.attention_layer
-
-        # Exporting the operator eye to ONNX opset version 11 is not supported
-        attention_matrix = torch.eye(1000)
-        self.non_diag_inds = torch.nonzero(attention_matrix == 0., as_tuple=False)
-        self.non_diag_inds = self.non_diag_inds[:, 1] + 1000 * self.non_diag_inds[:, 0]  # 999000
-
-        self.anchor_parts_1 = self.anchors[:, 2:4]
-        self.anchor_parts_2 = self.anchors[:, 4:]
-
-    def forward(self, x):
-        batch_features = self.feature_extractor(x)
-        batch_features = self.conv1(batch_features)
-        # batch_anchor_features = self.cut_anchor_features(batch_features)
-        # batchx15360
-        batch_anchor_features = batch_features.reshape(-1, int(batch_features.numel()))
-        # h, w = batch_features.shape[2:4]  # 12, 20
-        indices = self.cut_xs + 20 * self.cut_ys + 12 * 20 * self.cut_zs        
-        batch_anchor_features = batch_anchor_features[:, indices].\
-            view(-1, 1000, self.anchor_feat_channels, self.fmap_h, 1)        
-        # batch_anchor_features[self.invalid_mask] = 0
-        batch_anchor_features = batch_anchor_features * torch.logical_not(self.invalid_mask)
-
-        # Join proposals from all images into a single proposals features batch
-        # batchx1000x704
-        batch_anchor_features = batch_anchor_features.view(-1, 1000, self.anchor_feat_channels * self.fmap_h)
-
-        # Add attention features
-        softmax = torch.nn.Softmax(dim=2)
-        # batchx1000x999
-        scores = self.attention_layer(batch_anchor_features)
-        attention = softmax(scores)
-        # bs, _, _ = scores.shape
-        bs, _, _ =scores.shape
-        attention_matrix = torch.zeros(bs, 1000 * 1000, device=x.device)
-        attention_matrix[:, self.non_diag_inds] = attention.reshape(-1, int(attention.numel()))
-        attention_matrix = attention_matrix.view(-1, 1000, 1000)
-        attention_features = torch.matmul(torch.transpose(batch_anchor_features, 1, 2),
-                                          torch.transpose(attention_matrix, 1, 2)).transpose(1, 2)
-        batch_anchor_features = torch.cat((attention_features, batch_anchor_features), dim=2)
-
-        # Predict
-        cls_logits = self.cls_layer(batch_anchor_features)
-        reg = self.reg_layer(batch_anchor_features)
-
-        anchor_expanded_1 = self.anchor_parts_1.repeat(reg.shape[0], 1, 1)
-        anchor_expanded_2 = self.anchor_parts_2.repeat(reg.shape[0], 1, 1)  
-
-        # Add offsets to anchors (1000, 2+2+73)
-        reg_proposals = torch.cat([softmax(cls_logits), anchor_expanded_1, anchor_expanded_2 + reg], dim=2)
-
-        return reg_proposals
-
-def export_onnx(onnx_file_path):
-    # e.g. laneatt_r18_culane
-    backbone_name = 'resnet18'
-    checkpoint_file_path = 'experiments/laneatt_r18_culane/models/model_0015.pt'
-    anchors_freq_path = 'data/culane_anchors_freq.pt'
-
-    # Load specified checkpoint
-    model = LaneATT(backbone=backbone_name, anchors_freq_path=anchors_freq_path, topk_anchors=1000)
-    checkpoint = torch.load(checkpoint_file_path)
-    model.load_state_dict(checkpoint['model'])
-    model.eval()
-
-    # Export to ONNX
-    onnx_model = LaneATTONNX(model)
-    
-    dummy_input = torch.randn(1, 3, 360, 640)
-    dynamic_batch = {'images': {0: 'batch'}, 'output': {0: 'batch'}}
-    torch.onnx.export(
-        onnx_model, 
-        dummy_input, 
-        onnx_file_path, 
-        input_names=["images"], 
-        output_names=["output"],
-        dynamic_axes=dynamic_batch
-    )
-
-    import onnx
-    model_onnx = onnx.load(onnx_file_path)
-
-    # Simplify
-    try:
-        import onnxsim
-
-        print(f"simplifying with onnxsim {onnxsim.__version__}...")
-        model_onnx, check = onnxsim.simplify(model_onnx)
-        assert check, "Simplified ONNX model could not be validated"
-    except Exception as e:
-        print(f"simplifier failure: {e}")
-
-    onnx.save(model_onnx, "laneatt.sim.onnx")
-    print(f"simplify done. onnx model save in laneatt.sim.onnx")   
-
-if __name__ == '__main__':
-    export_onnx('./laneatt.onnx')
-```
-
-```shell
-cd laneatt-main
-conda activate laneatt
-python export.py
-```
-
-5. engine 生成
-
-**Engine 生成**：利用 `trtexec` 工具生成 engine
-
-```shell
-cd tensorRT_Pro-Vision/workspace
-bash lane_build.sh
-```
-
-</details>
-
-<details>
-<summary>CLRNet支持</summary>
-
-**1.** 前置条件
-
-- **tensorRT >= 8.6**
-
-**2.** 导出环境搭建
-
-```shell
-conda create -n clrnet python=3.9
-conda activate clrnet
-pip install torch==2.0.1 torchvision==0.15.2 torchaudio==2.0.2
-pip install pandas addict scikit-learn opencv-python pytorch_warmup scikit-image tqdm p_tqdm
-pip install imgaug yapf timm pathspec pthflops
-pip install numpy==1.26.4 mmcv==1.2.5 albumentations==0.4.6 ujson==1.35 Shapely==2.0.5
-pip install onnx onnx-simplifier onnxruntime
-```
-
-**3.** 项目克隆
-
-```shell
-git clone https://github.com/Turoad/CLRNet.git
-```
-
-**4.** 预训练权重下载
-
-- 下载链接（[Baidu Drive](https://pan.baidu.com/s/1rqXG6VXvzNeI-4Jl_vwKJQ?pwd=lane)）
-
-**5.** 导出 onnx 模型，在 clrnet-main 新建导出文件 `export.py` 内容如下：
-
-```python
-import math
-import torch
-import torch.nn.functional as F
-from clrnet.utils.config import Config
-from mmcv.parallel import MMDataParallel
-from clrnet.models.registry import build_net
-
-class CLRNetONNX(torch.nn.Module):
-    def __init__(self, model):
-        super(CLRNetONNX, self).__init__()
-        self.backbone = model.backbone
-        self.neck     = model.neck
-        self.head     = model.heads
-
-    def forward(self, x):
-        x = self.backbone(x)
-        x = self.neck(x)
-        batch_features = list(x[len(x) - self.head.refine_layers:])
-        # 1x64x10x25+1x64x20x50+1x64x40x100
-        batch_features.reverse()
-        batch_size = batch_features[-1].shape[0]
-
-        # 1x192x78
-        priors = self.head.priors.repeat(batch_size, 1, 1)
-        # 1x192x36
-        priors_on_featmap = self.head.priors_on_featmap.repeat(batch_size, 1, 1)
-        
-        prediction_lists = []
-        prior_features_stages = []
-        for stage in range(self.head.refine_layers):
-            # 1. anchor ROI pooling
-            num_priors = int(priors_on_featmap.shape[1])
-            prior_xs = torch.flip(priors_on_featmap, dims=[2])
-            batch_prior_features = self.head.pool_prior_features(
-                batch_features[stage], num_priors, prior_xs)
-            prior_features_stages.append(batch_prior_features)
-
-            # 2. ROI gather
-            fc_features = self.head.roi_gather(prior_features_stages, 
-                                               batch_features[stage], stage)
-            
-            # 3. cls and reg head           
-            # fc_features = fc_features.view(num_priors, batch_size, -1).reshape(batch_size * num_priors, self.head.fc_hidden_dim)
-            fc_features = fc_features.view(num_priors, -1, 64).reshape(-1, self.head.fc_hidden_dim)
-            
-            cls_features = fc_features.clone()
-            reg_features = fc_features.clone()
-            for cls_layer in self.head.cls_modules:
-                cls_features = cls_layer(cls_features)
-            for reg_layer in self.head.reg_modules:
-                reg_features = reg_layer(reg_features)
-            
-            cls_logits = self.head.cls_layers(cls_features)
-            reg = self.head.reg_layers(reg_features)
-
-            # cls_logits = cls_logits.reshape(batch_size, -1, cls_logits.shape[1]) # (B, num_priors, 2)
-            cls_logits = cls_logits.reshape(-1, 192, 2) # (B, num_priors, 2)
-            # add softmax
-            softmax = torch.nn.Softmax(dim=2)
-            cls_logits = softmax(cls_logits)
-            # reg = reg.reshape(batch_size, -1, reg.shape[1])
-            reg = reg.reshape(-1, 192, 76)
-            
-            predictions = priors.clone()
-            predictions[:, :, :2] = cls_logits
-            predictions[:, :, 2:5] += reg[:, :, :3]
-            # add n_strips * length
-            # predictions[:, :, 5] = reg[:, :, 3] # length
-            predictions[:, :, 5] = reg[:, :, 3] * self.head.n_strips # length
-            
-            def tran_tensor(t):
-                return t.unsqueeze(2).clone().repeat(1, 1, self.head.n_offsets)
-            
-            batch_size = reg.shape[0]
-            predictions[..., 6:] = (
-                tran_tensor(predictions[..., 3]) * (self.head.img_w - 1) +
-                ((1 - self.head.prior_ys.repeat(batch_size, num_priors, 1) -
-                  tran_tensor(predictions[..., 2])) * self.head.img_h /
-                 torch.tan(tran_tensor(predictions[..., 4]) * math.pi + 1e-5))) / (self.head.img_w - 1)
-
-            prediction_lines = predictions.clone()
-            predictions[..., 6:] += reg[..., 4:]
-
-            prediction_lists.append(predictions)
-
-            if stage != self.head.refine_layers - 1:
-                priors = prediction_lines.detach().clone()
-                priors_on_featmap = priors[..., 6 + self.head.sample_x_indexs]
-
-        return prediction_lists[-1]            
-    
-def export_onnx(onnx_file_path):
-    # e.g. clrnet_culane_r18
-    cfg = Config.fromfile("configs/clrnet/clr_resnet18_culane.py")
-    checkpoint_file_path = "culane_r18.pth"
-    # load checkpoint
-    net = build_net(cfg)
-    net = MMDataParallel(net, device_ids=range(1)).cuda()
-    pretrained_model = torch.load(checkpoint_file_path)
-    net.load_state_dict(pretrained_model['net'], strict=False)
-    net.eval()
-    model = net.to("cpu")
-
-    onnx_model = CLRNetONNX(model.module)
-    # Export to ONNX
-    dummy_input = torch.randn(1, 3 ,320, 800)
-    dynamic_batch = {'images': {0: 'batch'}, 'output': {0: 'batch'}}
-    torch.onnx.export(
-        onnx_model,
-        dummy_input,
-        onnx_file_path,
-        input_names=["images"],
-        output_names=["output"],
-        opset_version=17,
-        dynamic_axes=dynamic_batch
-    )
-    print(f"finished export onnx model")
-
-    import onnx
-    model_onnx = onnx.load(onnx_file_path)
-    onnx.checker.check_model(model_onnx)    # check onnx model
-
-    # Simplify
-    try:
-        import onnxsim
-
-        print(f"simplifying with onnxsim {onnxsim.__version__}...")
-        model_onnx, check = onnxsim.simplify(model_onnx)
-        assert check, "Simplified ONNX model could not be validated"
-    except Exception as e:
-        print(f"simplifier failure: {e}")
-
-    onnx.save(model_onnx, "clrnet.sim.onnx")
-    print(f"simplify done. onnx model save in clrnet.sim.onnx")
-    
-if __name__ == "__main__":
-    export_onnx("./clrnet.onnx")
-```
-
-```shell
-cd clrnet-main
-conda activate clrnet
-python export.py
-```
-
-**5.** engine 生成
-
-**Engine 生成**：利用 `trtexec` 工具生成 engine
-
-```shell
-cd tensorRT_Pro-Vision/workspace
-bash lane_build.sh
-```
-
-</details>
-
-<details>
-<summary>CLRerNet支持</summary>
-
-**1.** 前置条件
-
-- **tensorRT >= 8.6**
-
-**2.** 导出环境搭建
-
-```shell
-conda create -n clrernet python=3.8
-conda activate clrernet
-pip install torch==2.0.1 torchvision==0.15.2 torchaudio==2.0.2
-pip install -U openmim==0.3.3
-mim install mmcv-full==1.7.0
-pip install albumentations==0.4.6 p_tqdm==1.3.3 yapf==0.40.1 mmdet==2.28.0
-pip install pytest pytest-cov tensorboard
-pip install onnx onnx-simplifier onnxruntime
-```
-
-**3.** 项目克隆
-
-```shell
-git clone https://github.com/hirotomusiker/CLRerNet.git
-```
-
-**4.** 预训练权重下载
-
-- 下载链接（[Baidu Drive](https://pan.baidu.com/s/1_rszDtajwTpvH1O_OPFR9A?pwd=lane)）
-
-**5.** 导出 onnx 模型，在 clrernet-main 新建导出文件 `export.py` 内容如下：
-
-```python
-import torch
-from mmcv import Config
-from mmdet.models import build_detector
-from mmcv.runner import load_checkpoint
-
-class CLRerNetONNX(torch.nn.Module):
-    def __init__(self, model):
-        super(CLRerNetONNX, self).__init__()
-        self.model = model
-        self.bakcbone = model.backbone
-        self.neck     = model.neck
-        self.head     = model.bbox_head
-
-    def forward(self, x):
-        x = self.bakcbone(x)
-        x = self.neck(x)
-        
-        batch = x[0].shape[0]
-        feature_pyramid = list(x[len(x) - self.head.refine_layers:])
-        # 1x64x10x25+1x64x20x50+1x64x40x100
-        feature_pyramid.reverse()
-        
-        _, sampled_xs = self.head.anchor_generator.generate_anchors(
-            self.head.anchor_generator.prior_embeddings.weight,
-            self.head.prior_ys,
-            self.head.sample_x_indices,
-            self.head.img_w,
-            self.head.img_h
-        )
-
-        anchor_params = self.head.anchor_generator.prior_embeddings.weight.clone().repeat(batch, 1, 1)
-        priors_on_featmap = sampled_xs.repeat(batch, 1, 1)
-
-        predictions_list = []
-        pooled_features_stages = []
-        for stage in range(self.head.refine_layers):
-            # 1. anchor ROI pooling
-            prior_xs = priors_on_featmap
-            pooled_features = self.head.pool_prior_features(feature_pyramid[stage], prior_xs)
-            pooled_features_stages.append(pooled_features)
-
-            # 2. ROI gather
-            fc_features = self.head.attention(pooled_features_stages, feature_pyramid, stage)
-            # fc_features = fc_features.view(self.head.num_priors, batch, -1).reshape(batch * self.head.num_priors, self.head.fc_hidden_dim)
-            fc_features = fc_features.view(self.head.num_priors, -1, 64).reshape(-1, self.head.fc_hidden_dim)
-
-            # 3. cls and reg head
-            cls_features = fc_features.clone()
-            reg_features = fc_features.clone()
-            for cls_layer in self.head.cls_modules:
-                cls_features = cls_layer(cls_features)
-            for reg_layer in self.head.reg_modules:
-                reg_features = reg_layer(reg_features)
-            
-            cls_logits = self.head.cls_layers(cls_features)
-            # cls_logits = cls_logits.reshape(batch, -1, cls_logits.shape[1])
-            cls_logits = cls_logits.reshape(-1, 192, 2)
-
-            reg = self.head.reg_layers(reg_features)
-            # reg = reg.reshape(batch, -1, reg.shape[1])
-            reg = reg.reshape(-1, 192, 76)
-
-            # 4. reg processing
-            anchor_params += reg[:, :, :3]
-            updated_anchor_xs, _ = self.head.anchor_generator.generate_anchors(
-                anchor_params.view(-1, 3),
-                self.head.prior_ys,
-                self.head.sample_x_indices,
-                self.head.img_w,
-                self.head.img_h
-            )
-            # updated_anchor_xs = updated_anchor_xs.view(batch, self.head.num_priors, -1)
-            updated_anchor_xs = updated_anchor_xs.view(-1, 192, 72)
-            reg_xs = updated_anchor_xs + reg[..., 4:]
-
-            # start_y, start_x, theta
-            # some problem.
-            # anchor_params[:, :, 0] = 1.0 - anchor_params[:, :, 0]
-            # anchor_params_ = anchor_params.clone()
-            # anchor_params_[:, :, 0] = 1.0 - anchor_params_[:, :, 0]
-            # print(f"anchor_params.shape = {anchor_params_.shape}")
-
-            softmax = torch.nn.Softmax(dim=2)
-            cls_logits = softmax(cls_logits)
-            reg[:, :, 3:4] = reg[:, :, 3:4] * self.head.n_strips
-            predictions = torch.concat([cls_logits, anchor_params, reg[:, :, 3:4], reg_xs], dim=2)
-            # predictions = torch.concat([cls_logits, anchor_params_, reg[:, :, 3:4], reg_xs], dim=2)
-
-            predictions_list.append(predictions)
-
-            if stage != self.head.refine_layers - 1:
-                anchor_params = anchor_params.detach().clone()
-                priors_on_featmap = updated_anchor_xs.detach().clone()[
-                    ..., self.head.sample_x_indices
-                ]
-        
-        return predictions_list[-1]
-
-    
-if __name__ == "__main__":
-
-    cfg = Config.fromfile("configs/clrernet/culane/clrernet_culane_dla34.py")
-    model = build_detector(cfg.model, test_cfg=cfg.get("test_cfg"))
-    load_checkpoint(model, "clrernet_culane_dla34.pth", map_location="cpu")
-        
-    model.eval()
-    model = model.to("cpu")
-    
-    # Export to ONNX
-    onnx_model = CLRerNetONNX(model)
-
-    dummy_input = torch.randn(1, 3, 320, 800)
-
-    dynamic_batch = {'images': {0: 'batch'}, 'output': {0: 'batch'}}
-    torch.onnx.export(
-        onnx_model, 
-        dummy_input,
-        "model.onnx",
-        input_names=["images"],
-        output_names=["output"],
-        opset_version=17,
-        dynamic_axes=dynamic_batch
-    )
-    print(f"finished export onnx model")
-
-    import onnx
-    model_onnx = onnx.load("model.onnx")
-    onnx.checker.check_model(model_onnx)    # check onnx model
-
-    # Simplify
-    try:
-        import onnxsim
-
-        print(f"simplifying with onnxsim {onnxsim.__version__}...")
-        model_onnx, check = onnxsim.simplify(model_onnx)
-        assert check, "Simplified ONNX model could not be validated"
-    except Exception as e:
-        print(f"simplifier failure: {e}")
-
-    onnx.save(model_onnx, "clrernet.sim.onnx")
-    print(f"simplify done. onnx model save in clrernet.sim.onnx")
-```
-
-```shell
-cd clrernet-main
-conda activate clrernet
-python export.py
-```
-
-**5.** engine 生成
-
-**Engine 生成**：利用 `trtexec` 工具生成 engine
-
-```shell
-cd tensorRT_Pro-Vision/workspace
-bash lane_build.sh
 ```
 
 </details>
@@ -2428,255 +1347,12 @@ make yolo_pose -j64
 
 </details>
 
-<details>
-
-<summary>Depth-Anything-V1支持</summary>
-
-**1.** 前置条件
-
-- **tensorRT >= 8.6**
-
-**2.** 项目克隆
-
-```shell
-git clone https://github.com/LiheYoung/Depth-Anything.git
-```
-
-**3.** 预训练权重下载
-
-- 下载链接（[Baidu Drive](https://pan.baidu.com/s/1VuNdh0N5afvpnaGqJ_Hnbw?pwd=1234)）
-
-**4.** 修改代码，保证正确导出
-
-```python
-# ========== dpt.py ==========
-
-# depth_anything/dpt.py第5行，注释
-# from huggingface_hub import PyTorchModelHubMixin, hf_hub_download
-
-# depth_anything/dpt.py第166行，forward函数
-# return depth.squeeze(1)
-# 修改为：
-
-return depth
-```
-
-**5.** 导出 onnx 模型，在 Depth-Anything 项目下新建导出文件 `export.py`，内容如下：
-
-```python
-import torch
-import argparse
-import torch.onnx
-from depth_anything.dpt import DPT_DINOv2
-
-def export_model(encoder: str, load_from: str, image_shape: tuple):
-
-    # Initializing model
-    assert encoder in ['vits', 'vitb', 'vitl']
-    if encoder == 'vits':
-        depth_anything = DPT_DINOv2(encoder='vits', features=64, out_channels=[48, 96, 192, 384], localhub='localhub')
-    elif encoder == 'vitb':
-        depth_anything = DPT_DINOv2(encoder='vitb', features=128, out_channels=[96, 192, 384, 768], localhub='localhub')
-    else:
-        depth_anything = DPT_DINOv2(encoder='vitl', features=256, out_channels=[256, 512, 1024, 1024], localhub='localhub')
-
-    total_params = sum(param.numel() for param in depth_anything.parameters())
-    print('Total parameters: {:.2f}M'.format(total_params / 1e6))
-
-    # Loading model weight
-    depth_anything.load_state_dict(torch.load(load_from, map_location='cpu'), strict=True)
-
-    depth_anything.eval()
-
-    # Define dummy input data
-    dummy_input = torch.ones(image_shape).unsqueeze(0)
-
-    onnx_path = load_from.split('/')[-1].split('.pth')[0] + '.onnx'
-
-    dynamic_batch = {"images": {0: "batch"}, "output": {0: "batch"}}
-
-    # Export the PyTorch model to ONNX format
-    torch.onnx.export(
-        depth_anything, 
-        dummy_input, 
-        onnx_path, 
-        opset_version=17, 
-        input_names=["images"], 
-        output_names=["output"],
-        dynamic_axes=None
-    )
-
-    import onnx
-    model_onnx = onnx.load(onnx_path)
-
-    # Simplify
-    try:
-        import onnxsim
-
-        print(f"simplifying with onnxsim {onnxsim.__version__}...")
-        model_onnx, check = onnxsim.simplify(model_onnx)
-        assert check, "Simplified ONNX model could not be validated"
-    except Exception as e:
-        print(f"simplifier failure: {e}")
-
-    onnx.save(model_onnx, f"depth_anything_{encoder}.sim.onnx")
-    print(f"simplify done. onnx model save in depth_anything_{encoder}.sim.onnx")  
-
-    print(f"Model exported to {onnx_path}")
-
-def main():
-    parser = argparse.ArgumentParser(description="Export Depth DPT model to ONNX format")
-    parser.add_argument("--encoder", type=str, choices=['vits', 'vitb', 'vitl'], help="Type of encoder to use ('vits', 'vitb', 'vitl')")
-    parser.add_argument("--load_from", type=str, help="Path to the pre-trained model checkpoint")
-    parser.add_argument("--image_shape", type=int, nargs=3, metavar=("channels", "height", "width"), help="Shape of the input image")
-    args = parser.parse_args()
-
-    export_model(args.encoder, args.load_from, tuple(args.image_shape))
-
-if __name__ == "__main__":
-    main()
-```
-
-```shell
-cd Depth-Anything
-python export.py --encoder vits --load_from depth_anything_vits14.pth --image_shape 3 518 518
-```
-
-**6.** engine 生成
-
-**Engine 生成**：利用 `trtexec` 工具生成 engine
-
-```shell
-cd tensorRT_Pro-Vision/workspace
-bash depth_anything_build.sh
-```
-
-**7.** 执行
-
-```shell
-cd tensorRT_Pro-Vision
-make depth_anything -j64
-```
-
 </details>
 
+<a id="docs-yolo12-13" name="docs-yolo12-13"></a>
+
 <details>
-
-<summary>Depth-Anything-V2支持</summary>
-
-**1.** 前置条件
-
-- **tensorRT >= 8.6**
-
-**2.** 项目克隆
-
-```shell
-git clone https://github.com/DepthAnything/Depth-Anything-V2.git
-```
-
-**3.** 预训练权重下载
-
-- 下载链接（[Baidu Drive](https://pan.baidu.com/s/1VuNdh0N5afvpnaGqJ_Hnbw?pwd=1234)）
-
-**4.** 修改代码，保证正确导出
-
-```python
-# ========== dpt.py ==========
-
-# depth_anything_v2/dpt.py第184行，forward函数
-# return depth.squeeze(1)
-# 修改为：
-
-return depth
-```
-
-**5.** 导出 onnx 模型，在 Depth-Anything-V2 项目下新建导出文件 `export.py`，内容如下：
-
-```python
-import torch
-import argparse
-from depth_anything_v2.dpt import DepthAnythingV2
-
-def main():
-    parser = argparse.ArgumentParser(description='Depth Anything V2')
-    
-    parser.add_argument('--input-size', type=int, default=518)
-    parser.add_argument('--encoder', type=str, default='vits', choices=['vits', 'vitb', 'vitl', 'vitg'])
-
-    args = parser.parse_args()
-    
-    # we are undergoing company review procedures to release Depth-Anything-Giant checkpoint
-    model_configs = {
-        'vits': {'encoder': 'vits', 'features': 64, 'out_channels': [48, 96, 192, 384]},
-        'vitb': {'encoder': 'vitb', 'features': 128, 'out_channels': [96, 192, 384, 768]},
-        'vitl': {'encoder': 'vitl', 'features': 256, 'out_channels': [256, 512, 1024, 1024]},
-        'vitg': {'encoder': 'vitg', 'features': 384, 'out_channels': [1536, 1536, 1536, 1536]}
-    }
-    
-    depth_anything = DepthAnythingV2(**model_configs[args.encoder])
-    depth_anything.load_state_dict(torch.load(f'checkpoints/depth_anything_v2_{args.encoder}.pth', map_location='cpu'))
-    depth_anything = depth_anything.to('cpu').eval()
-
-    # Define dummy input data
-    dummy_input = torch.ones((3, args.input_size, args.input_size)).unsqueeze(0)
-
-    onnx_path = f'depth_anything_v2_{args.encoder}.onnx'
-
-    dynamic_batch = {"images": {0: "batch"}, "output": {0: "batch"}}
-    
-    # Export the PyTorch model to ONNX format
-    torch.onnx.export(
-        depth_anything, 
-        dummy_input, 
-        onnx_path, 
-        opset_version=17, 
-        input_names=["images"], 
-        output_names=["output"],
-        dynamic_axes=None
-    )
-
-    import onnx
-    model_onnx = onnx.load(onnx_path)
-
-    # Simplify
-    try:
-        import onnxsim
-
-        print(f"simplifying with onnxsim {onnxsim.__version__}...")
-        model_onnx, check = onnxsim.simplify(model_onnx)
-        assert check, "Simplified ONNX model could not be validated"
-    except Exception as e:
-        print(f"simplifier failure: {e}")
-
-    onnx.save(model_onnx, f"depth_anything_v2_{args.encoder}.sim.onnx")
-    print(f"simplify done. onnx model save in depth_anything_v2_{args.encoder}.sim.onnx")  
-
-if __name__ == "__main__":
-    main()
-```
-
-```shell
-cd Depth-Anything-V2
-python export.py --encoder vits --input-size 518
-```
-
-**6.** engine 生成
-
-**Engine 生成**：利用 `trtexec` 工具生成 engine
-
-```shell
-cd tensorRT_Pro-Vision/workspace
-bash depth_anything_build.sh
-```
-
-**7.** 执行
-
-```shell
-cd tensorRT_Pro-Vision
-make depth_anything -j64
-```
-
-</details>
+<summary><b>YOLOv12 / v13</b> · YOLOv12 / YOLOv13 检测模型</summary>
 
 <details>
 <summary>YOLOv12支持</summary>
@@ -2822,6 +1498,13 @@ make yolo -j64
 ```
 
 </details>
+
+</details>
+
+<a id="docs-yolo26" name="docs-yolo26"></a>
+
+<details>
+<summary><b>YOLO26 系列</b> · Det / Cls / Seg / OBB / Pose / Sem / Depth</summary>
 
 <details>
 
@@ -3295,7 +1978,7 @@ git clone https://github.com/ultralytics/ultralytics.git
 #     dynamic = {"images": {0: "batch", 2: "height", 3: "width"}}  # shape(1,3,640,640)
 #     ...
 #     elif isinstance(self.model, DepthModel):
-#         dynamic["output0"] = {0: "batch", 2: "height", 3: "width"}  # shape(1,1,640,640) dense map, not anchors        
+#         dynamic["output0"] = {0: "batch", 2: "height", 3: "width"}  # shape(1,1,640,640) dense map, not anchors
 # 修改为：
 
 output_names = ["output0", "output1"] if self.model.task == "segment" else ["output"]
@@ -3342,6 +2025,1416 @@ make yolo_depth -j64
 如需单图或视频演示，取消 `src/application/app_yolo_depth.cpp` 中 `test_single_image()` / `test_video()` 的注释即可：单图输出 `Result-YoloDepth.jpg`（原图 | 深度 | 叠加）和 `Result-YoloDepth.tiff`，视频输出 `result_yolo_depth.mp4`。
 
 注意：YOLO26-Depth 的预处理是直接拉伸到 768x768（`scale_fill=True`），**不是 letterbox**，也没有 114 灰边填充；归一化仅为 `/255`。ONNX 输出已经是米制深度，C++ 端只需做 `align_corners=True` 的 bilinear 缩放到原图分辨率。
+
+</details>
+
+</details>
+
+<a id="docs-detr" name="docs-detr"></a>
+
+<details>
+<summary><b>DETR 系列</b> · RT-DETR / RF-DETR</summary>
+
+<details>
+<summary>RT-DETR支持</summary>
+
+1. 前置条件
+
+- **tensorRT >= 8.6**
+
+2. 下载 YOLOv8
+
+```shell
+git clone https://github.com/ultralytics/ultralytics.git
+```
+
+3. 修改代码, 保证动态 batch
+
+```python
+# ========== exporter.py ==========
+
+# ultralytics/engine/exporter.py第323行
+# output_names = ['output0', 'output1'] if isinstance(self.model, SegmentationModel) else ['output0']
+# dynamic = self.args.dynamic
+# if dynamic:
+#     dynamic = {'images': {0: 'batch', 2: 'height', 3: 'width'}}  # shape(1,3,640,640)
+#     if isinstance(self.model, SegmentationModel):
+#         dynamic['output0'] = {0: 'batch', 2: 'anchors'}  # shape(1, 116, 8400)
+#         dynamic['output1'] = {0: 'batch', 2: 'mask_height', 3: 'mask_width'}  # shape(1,32,160,160)
+#     elif isinstance(self.model, DetectionModel):
+#         dynamic['output0'] = {0: 'batch', 2: 'anchors'}  # shape(1, 84, 8400)
+# 修改为：
+
+output_names = ['output0', 'output1'] if isinstance(self.model, SegmentationModel) else ['output']
+dynamic = self.args.dynamic
+if dynamic:
+    dynamic = {'images': {0: 'batch'}}  # shape(1,3,640,640)
+    if isinstance(self.model, SegmentationModel):
+        dynamic['output0'] = {0: 'batch', 2: 'anchors'}  # shape(1, 116, 8400)
+        dynamic['output1'] = {0: 'batch', 2: 'mask_height', 3: 'mask_width'}  # shape(1,32,160,160)
+    elif isinstance(self.model, DetectionModel):
+        dynamic['output'] = {0: 'batch'}  # shape(1, 84, 8400)
+```
+
+4. 导出 onnx 模型，在 ultralytics-main 新建导出文件 `export.py` 内容如下（可能会由于 torch 版本问题导出失败, 具体可参考 [#6144](https://github.com/ultralytics/ultralytics/issues/6144)）
+
+```python
+from ultralytics import RTDETR
+
+model = RTDETR("rtdetr-l.pt")
+
+success = model.export(format="onnx", dynamic=True, simplify=True)
+```
+
+```shell
+cd ultralytics-main
+python export.py
+```
+
+5. engine 生成
+
+**Engine 生成**：利用 `trtexec` 工具生成 engine
+
+```shell
+cp ultralytics/yolov8s.onnx tensorRT_Pro-Vision/workspace
+cd tensorRT_Pro-Vision/workspace
+bash build.sh
+```
+
+6. 执行
+
+```shell
+make rtdetr -j64
+```
+
+</details>
+
+<details>
+<summary>RF-DETR支持</summary>
+
+1. 前置条件
+
+- **tensorRT >= 8.6**
+
+2. 下载 RF-DETR
+
+```shell
+git clone https://github.com/roboflow/rf-detr.git
+```
+
+3. 修改代码，将后处理塞进 ONNX 计算图
+
+- **step 1.** 在 `rf-detr/src/rfdetr/export/_onnx` 文件夹下新建 **post_process.py**，内容如下：
+
+```python
+# ------------------------------------------------------------------------
+# RF-DETR
+# Copyright (c) 2025 Roboflow. All Rights Reserved.
+# Licensed under the Apache License, Version 2.0 [see LICENSE for details]
+# ------------------------------------------------------------------------
+"""Lightweight wrapper that embeds post-processing into the ONNX graph for deployment."""
+
+import torch
+from torch import nn
+class ExportPostProcessor(nn.Module):
+    """Wraps the raw LWDETR model so that sigmoid + argmax + merge are part of the ONNX graph.
+
+    The wrapped model's ``forward()`` produces a single tensor that is ready for threshold filtering
+    at the caller side — no additional CUDA kernels are needed for post-processing.
+
+    Input:
+        images: (B, 3, H, W) float32, already resized and normalized.
+
+    Output:
+        output: (B, 300, 6) where the last dim is ``[cx, cy, w, h, confidence, class_id]``.
+    """
+
+    def __init__(self, model: nn.Module) -> None:
+        super().__init__()
+        self.model = model
+
+    def forward(self, images: torch.Tensor) -> torch.Tensor:
+        outputs = self.model(images)
+
+        # forward_export() returns a tuple (boxes, logits, ...); standard forward() returns a dict.
+        if isinstance(outputs, tuple):
+            pred_boxes = outputs[0]
+            pred_logits = outputs[1]
+        else:
+            pred_boxes = outputs["pred_boxes"]
+            pred_logits = outputs["pred_logits"]
+
+        # Sigmoid → per-query argmax to select the best class.
+        probs = pred_logits.sigmoid()           # (B, 300, 91)
+        scores, labels = probs.max(dim=-1)       # (B, 300), (B, 300)
+        labels = labels.float().unsqueeze(-1)    # (B, 300, 1)
+        scores = scores.unsqueeze(-1)            # (B, 300, 1)
+
+        # Merge: [cx, cy, w, h, confidence, class_id]
+        return torch.cat([pred_boxes, scores, labels], dim=-1)  # (B, 300, 6)
+class ExportRawProcessor(nn.Module):
+    """Wraps LWDETR for ONNX export with raw outputs — no post-processing in the graph.
+
+    Use this to isolate whether FP16 issues come from post-processing fusion or the main network.
+
+    Input:
+        images: (B, 3, H, W) float32
+
+    Output:
+        pred_boxes:  (B, 300, 4)   cxcywh, normalized [0,1]
+        pred_logits: (B, 300, 91)  raw class logits
+    """
+
+    def __init__(self, model: nn.Module) -> None:
+        super().__init__()
+        self.model = model
+
+    def forward(self, images: torch.Tensor) -> tuple[torch.Tensor, torch.Tensor]:
+        outputs = self.model(images)
+        if isinstance(outputs, tuple):
+            return outputs[0], outputs[1]
+        else:
+            return outputs["pred_boxes"], outputs["pred_logits"]
+```
+
+- **step 2.** 在 `rf-detr/src/rfdetr/detr.py` 文件的 1133 行也就是 **export()** 函数后面新增如下函数：
+
+```python
+def export_for_deployment(
+    self,
+    output_dir: str = "output",
+    shape: tuple[int, int] | None = None,
+    batch_size: int = 1,
+    opset_version: int = 17,
+    simplify: bool = True,
+    dynamic_batch: bool = False,
+    patch_size: int | None = None,
+) -> Path:
+    """Export ONNX with embedded post-processing for TensorRT deployment.
+
+    Produces a single ONNX file where sigmoid, argmax, and box-label merging are baked into the
+    graph.  The caller only needs to resize, normalise, and run the model — the output is ready for
+    threshold filtering without any additional CUDA kernels.
+
+    Args:
+        output_dir: Directory to write the exported ONNX model.
+        shape: ``(height, width)`` tuple; defaults to ``(model.resolution, model.resolution)``.
+        batch_size: Static batch size baked into the ONNX graph.
+        opset_version: ONNX opset version to target.
+        simplify: Whether to run ``onnxsim`` on the exported graph.
+        patch_size: Backbone patch size. Defaults to ``model_config.patch_size``.
+
+    Returns:
+        Path to the exported ``.onnx`` file.
+    """
+    from copy import deepcopy
+
+    from rfdetr.export._onnx.post_process import ExportPostProcessor
+    from rfdetr.export.main import make_infer_image
+
+    patch_size = _resolve_patch_size(patch_size, self.model_config, "export_for_deployment")
+    num_windows = getattr(self.model_config, "num_windows", 1)
+    if isinstance(num_windows, bool) or not isinstance(num_windows, int) or num_windows <= 0:
+        raise ValueError(f"num_windows must be a positive integer, got {num_windows!r}")
+    block_size = patch_size * num_windows
+
+    if shape is None:
+        shape = (self.model.resolution, self.model.resolution)
+        if shape[0] % block_size != 0:
+            raise ValueError(
+                f"Model's default resolution ({self.model.resolution}) is not divisible by "
+                f"block_size={block_size} (patch_size={patch_size} * num_windows={num_windows}). "
+                f"Provide an explicit shape divisible by {block_size}.",
+            )
+    else:
+        shape = _validate_shape_dims(shape, block_size, patch_size, num_windows)
+
+    device = self.model.device
+    self.model.model = self.model.model.to("cpu")
+    model = deepcopy(self.model.model)
+    model.to(device)
+    try:
+        os.makedirs(output_dir, exist_ok=True)
+
+        input_tensors = make_infer_image(
+            None, shape, batch_size, device, num_channels=self.model_config.num_channels
+        ).to(device)
+
+        # Wrap with post-processing so sigmoid + argmax are baked into the ONNX graph.
+        # Must call model.export() first to disable anti-alias upsampling (incompatible with ONNX).
+        if hasattr(model, "export"):
+            model.export()
+        wrapped = ExportPostProcessor(model)
+        wrapped.eval()
+
+        input_names = ["images"]
+        output_names = ["output"]
+
+        dynamic_axes = {"images": {0: "batch"}, "output": {0: "batch"}} if dynamic_batch else None
+
+        export_kwargs = {}
+        if "dynamo" in __import__("inspect").signature(torch.onnx.export).parameters:
+            export_kwargs["dynamo"] = False
+
+        output_file = os.path.join(output_dir, f"{getattr(self, 'size', 'inference_model')}.onnx")
+        torch.onnx.export(
+            wrapped,
+            input_tensors,
+            output_file,
+            input_names=input_names,
+            output_names=output_names,
+            export_params=True,
+            keep_initializers_as_inputs=False,
+            do_constant_folding=True,
+            verbose=False,
+            opset_version=opset_version,
+            dynamic_axes=dynamic_axes,
+            **export_kwargs,
+        )
+
+        logger.info(f"Successfully exported ONNX model to: {output_file}")
+
+        if simplify:
+            from rfdetr.export._onnx.exporter import onnx_simplify
+
+            onnx_simplify(output_file, input_names=["images"], input_tensors=input_tensors)
+
+        logger.info("Export for deployment completed successfully")
+        return Path(output_file)
+    finally:
+        self.model.model = self.model.model.to(device)
+```
+
+4. 导出 onnx 模型，在 rf-detr 新建导出文件 `export.py` 内容如下：
+
+```python
+from rfdetr import RFDETRMedium
+
+model = RFDETRMedium(pretrain_weights="./checkpoint_best_regular.pth")
+
+# Export with embedded post-processing (sigmoid+argmax+concat)
+model.export_for_deployment(output_dir="output", shape=(576, 576))
+```
+
+```shell
+cd rf-detr
+python export.py
+```
+
+5. engine 生成
+
+**Engine 生成**：利用 `trtexec` 工具生成 engine
+
+```shell
+cp rf-detr/output/rfdetr-medium.sim.onnx tensorRT_Pro-Vision/workspace/rfdetr-medium.onnx
+cd tensorRT_Pro-Vision/workspace
+bash build.sh
+```
+
+6. 执行
+
+```shell
+make rfdetr -j64
+```
+
+</details>
+
+</details>
+
+<a id="docs-depth" name="docs-depth"></a>
+
+<details>
+<summary><b>深度估计</b> · Depth-Anything V1 / V2</summary>
+
+> YOLO26-Depth 属于 YOLO26 系列，见 [YOLO26 系列](#docs-yolo26)。
+
+<details>
+
+<summary>Depth-Anything-V1支持</summary>
+
+**1.** 前置条件
+
+- **tensorRT >= 8.6**
+
+**2.** 项目克隆
+
+```shell
+git clone https://github.com/LiheYoung/Depth-Anything.git
+```
+
+**3.** 预训练权重下载
+
+- 下载链接（[Baidu Drive](https://pan.baidu.com/s/1VuNdh0N5afvpnaGqJ_Hnbw?pwd=1234)）
+
+**4.** 修改代码，保证正确导出
+
+```python
+# ========== dpt.py ==========
+
+# depth_anything/dpt.py第5行，注释
+# from huggingface_hub import PyTorchModelHubMixin, hf_hub_download
+
+# depth_anything/dpt.py第166行，forward函数
+# return depth.squeeze(1)
+# 修改为：
+
+return depth
+```
+
+**5.** 导出 onnx 模型，在 Depth-Anything 项目下新建导出文件 `export.py`，内容如下：
+
+```python
+import torch
+import argparse
+import torch.onnx
+from depth_anything.dpt import DPT_DINOv2
+
+def export_model(encoder: str, load_from: str, image_shape: tuple):
+
+    # Initializing model
+    assert encoder in ['vits', 'vitb', 'vitl']
+    if encoder == 'vits':
+        depth_anything = DPT_DINOv2(encoder='vits', features=64, out_channels=[48, 96, 192, 384], localhub='localhub')
+    elif encoder == 'vitb':
+        depth_anything = DPT_DINOv2(encoder='vitb', features=128, out_channels=[96, 192, 384, 768], localhub='localhub')
+    else:
+        depth_anything = DPT_DINOv2(encoder='vitl', features=256, out_channels=[256, 512, 1024, 1024], localhub='localhub')
+
+    total_params = sum(param.numel() for param in depth_anything.parameters())
+    print('Total parameters: {:.2f}M'.format(total_params / 1e6))
+
+    # Loading model weight
+    depth_anything.load_state_dict(torch.load(load_from, map_location='cpu'), strict=True)
+
+    depth_anything.eval()
+
+    # Define dummy input data
+    dummy_input = torch.ones(image_shape).unsqueeze(0)
+
+    onnx_path = load_from.split('/')[-1].split('.pth')[0] + '.onnx'
+
+    dynamic_batch = {"images": {0: "batch"}, "output": {0: "batch"}}
+
+    # Export the PyTorch model to ONNX format
+    torch.onnx.export(
+        depth_anything,
+        dummy_input,
+        onnx_path,
+        opset_version=17,
+        input_names=["images"],
+        output_names=["output"],
+        dynamic_axes=None
+    )
+
+    import onnx
+    model_onnx = onnx.load(onnx_path)
+
+    # Simplify
+    try:
+        import onnxsim
+
+        print(f"simplifying with onnxsim {onnxsim.__version__}...")
+        model_onnx, check = onnxsim.simplify(model_onnx)
+        assert check, "Simplified ONNX model could not be validated"
+    except Exception as e:
+        print(f"simplifier failure: {e}")
+
+    onnx.save(model_onnx, f"depth_anything_{encoder}.sim.onnx")
+    print(f"simplify done. onnx model save in depth_anything_{encoder}.sim.onnx")
+
+    print(f"Model exported to {onnx_path}")
+
+def main():
+    parser = argparse.ArgumentParser(description="Export Depth DPT model to ONNX format")
+    parser.add_argument("--encoder", type=str, choices=['vits', 'vitb', 'vitl'], help="Type of encoder to use ('vits', 'vitb', 'vitl')")
+    parser.add_argument("--load_from", type=str, help="Path to the pre-trained model checkpoint")
+    parser.add_argument("--image_shape", type=int, nargs=3, metavar=("channels", "height", "width"), help="Shape of the input image")
+    args = parser.parse_args()
+
+    export_model(args.encoder, args.load_from, tuple(args.image_shape))
+
+if __name__ == "__main__":
+    main()
+```
+
+```shell
+cd Depth-Anything
+python export.py --encoder vits --load_from depth_anything_vits14.pth --image_shape 3 518 518
+```
+
+**6.** engine 生成
+
+**Engine 生成**：利用 `trtexec` 工具生成 engine
+
+```shell
+cd tensorRT_Pro-Vision/workspace
+bash depth_anything_build.sh
+```
+
+**7.** 执行
+
+```shell
+cd tensorRT_Pro-Vision
+make depth_anything -j64
+```
+
+</details>
+
+<details>
+
+<summary>Depth-Anything-V2支持</summary>
+
+**1.** 前置条件
+
+- **tensorRT >= 8.6**
+
+**2.** 项目克隆
+
+```shell
+git clone https://github.com/DepthAnything/Depth-Anything-V2.git
+```
+
+**3.** 预训练权重下载
+
+- 下载链接（[Baidu Drive](https://pan.baidu.com/s/1VuNdh0N5afvpnaGqJ_Hnbw?pwd=1234)）
+
+**4.** 修改代码，保证正确导出
+
+```python
+# ========== dpt.py ==========
+
+# depth_anything_v2/dpt.py第184行，forward函数
+# return depth.squeeze(1)
+# 修改为：
+
+return depth
+```
+
+**5.** 导出 onnx 模型，在 Depth-Anything-V2 项目下新建导出文件 `export.py`，内容如下：
+
+```python
+import torch
+import argparse
+from depth_anything_v2.dpt import DepthAnythingV2
+
+def main():
+    parser = argparse.ArgumentParser(description='Depth Anything V2')
+
+    parser.add_argument('--input-size', type=int, default=518)
+    parser.add_argument('--encoder', type=str, default='vits', choices=['vits', 'vitb', 'vitl', 'vitg'])
+
+    args = parser.parse_args()
+
+    # we are undergoing company review procedures to release Depth-Anything-Giant checkpoint
+    model_configs = {
+        'vits': {'encoder': 'vits', 'features': 64, 'out_channels': [48, 96, 192, 384]},
+        'vitb': {'encoder': 'vitb', 'features': 128, 'out_channels': [96, 192, 384, 768]},
+        'vitl': {'encoder': 'vitl', 'features': 256, 'out_channels': [256, 512, 1024, 1024]},
+        'vitg': {'encoder': 'vitg', 'features': 384, 'out_channels': [1536, 1536, 1536, 1536]}
+    }
+
+    depth_anything = DepthAnythingV2(**model_configs[args.encoder])
+    depth_anything.load_state_dict(torch.load(f'checkpoints/depth_anything_v2_{args.encoder}.pth', map_location='cpu'))
+    depth_anything = depth_anything.to('cpu').eval()
+
+    # Define dummy input data
+    dummy_input = torch.ones((3, args.input_size, args.input_size)).unsqueeze(0)
+
+    onnx_path = f'depth_anything_v2_{args.encoder}.onnx'
+
+    dynamic_batch = {"images": {0: "batch"}, "output": {0: "batch"}}
+
+    # Export the PyTorch model to ONNX format
+    torch.onnx.export(
+        depth_anything,
+        dummy_input,
+        onnx_path,
+        opset_version=17,
+        input_names=["images"],
+        output_names=["output"],
+        dynamic_axes=None
+    )
+
+    import onnx
+    model_onnx = onnx.load(onnx_path)
+
+    # Simplify
+    try:
+        import onnxsim
+
+        print(f"simplifying with onnxsim {onnxsim.__version__}...")
+        model_onnx, check = onnxsim.simplify(model_onnx)
+        assert check, "Simplified ONNX model could not be validated"
+    except Exception as e:
+        print(f"simplifier failure: {e}")
+
+    onnx.save(model_onnx, f"depth_anything_v2_{args.encoder}.sim.onnx")
+    print(f"simplify done. onnx model save in depth_anything_v2_{args.encoder}.sim.onnx")
+
+if __name__ == "__main__":
+    main()
+```
+
+```shell
+cd Depth-Anything-V2
+python export.py --encoder vits --input-size 518
+```
+
+**6.** engine 生成
+
+**Engine 生成**：利用 `trtexec` 工具生成 engine
+
+```shell
+cd tensorRT_Pro-Vision/workspace
+bash depth_anything_build.sh
+```
+
+**7.** 执行
+
+```shell
+cd tensorRT_Pro-Vision
+make depth_anything -j64
+```
+
+</details>
+
+</details>
+
+<a id="docs-ocr" name="docs-ocr"></a>
+
+<details>
+<summary><b>OCR</b> · PP-OCRv4（det / cls / rec）</summary>
+
+<details>
+<summary>PP-OCRv4支持</summary>
+
+1. 导出环境搭建
+
+```shell
+conda create --name paddleocr python=3.9
+conda activate paddleocr
+pip install shapely scikit-image imgaug pyclipper lmdb tqdm numpy==1.26.4 rapidfuzz onnxruntime
+pip install "opencv-python<=4.6.0.66" "opencv-contrib-python<=4.6.0.66" cython "Pillow>=10.0.0" pyyaml requests
+pip install paddlepaddle paddleocr paddle2onnx
+```
+
+2. 项目克隆
+
+```shell
+git clone https://github.com/PaddlePaddle/PaddleOCR.git
+```
+
+3. 预训练权重下载
+
+- 参考：[🛠️ PP-OCR 系列模型列表（更新中）](https://github.com/PaddlePaddle/PaddleOCR?tab=readme-ov-file#%EF%B8%8F-pp-ocr-%E7%B3%BB%E5%88%97%E6%A8%A1%E5%9E%8B%E5%88%97%E8%A1%A8%E6%9B%B4%E6%96%B0%E4%B8%AD)
+
+4. 导出 onnx 模型，具体流程请参考：[PaddleOCR-PP-OCRv4推理详解及部署实现（上）](https://blog.csdn.net/qq_40672115/article/details/140571346)
+
+5. engine 生成
+
+**Engine 生成**：利用 `trtexec` 工具生成 engine
+
+```shell
+cd tensorRT_Pro-Vision/workspace
+bash ocr_build.sh
+```
+
+6. 执行
+
+```shell
+make ppocr -j64
+```
+
+</details>
+
+</details>
+
+<a id="docs-lane" name="docs-lane"></a>
+
+<details>
+<summary><b>车道线检测</b> · LaneATT / CLRNet / CLRerNet</summary>
+
+<details>
+<summary>LaneATT支持</summary>
+
+1. 导出环境搭建
+
+```shell
+conda create -n laneatt python=3.10
+conda activate laneatt
+pip install torch==2.0.1 torchvision==0.15.2 torchaudio==2.0.2
+pip install pyyaml opencv-python scipy imgaug numpy==1.26.4 tqdm p_tqdm ujson scikit-learn tensorboard
+pip install onnx onnxruntime onnx-simplifier
+```
+
+2. 项目克隆
+
+```shell
+git clone https://github.com/lucastabelini/LaneATT.git
+```
+
+3. 预训练权重下载
+
+```shell
+gdown "https://drive.google.com/uc?id=1R638ou1AMncTCRvrkQY6I-11CPwZy23T" # main experiments on TuSimple, CULane and LLAMAS (1.3 GB)
+unzip laneatt_experiments.zip
+```
+
+4. 导出 onnx 模型，在 laneatt-main 新建导出文件 `export.py` 内容如下：
+
+```python
+import torch
+from lib.models.laneatt import LaneATT
+
+class LaneATTONNX(torch.nn.Module):
+    def __init__(self, model):
+        super(LaneATTONNX, self).__init__()
+        # Params
+        self.fmap_h = model.fmap_h  # 11
+        self.fmap_w = model.fmap_w  # 20
+        self.anchor_feat_channels = model.anchor_feat_channels  # 64
+        self.anchors = model.anchors
+        self.cut_xs = model.cut_xs
+        self.cut_ys = model.cut_ys
+        self.cut_zs = model.cut_zs
+        self.invalid_mask = model.invalid_mask
+        # Layers
+        self.feature_extractor = model.feature_extractor
+        self.conv1 = model.conv1
+        self.cls_layer = model.cls_layer
+        self.reg_layer = model.reg_layer
+        self.attention_layer = model.attention_layer
+
+        # Exporting the operator eye to ONNX opset version 11 is not supported
+        attention_matrix = torch.eye(1000)
+        self.non_diag_inds = torch.nonzero(attention_matrix == 0., as_tuple=False)
+        self.non_diag_inds = self.non_diag_inds[:, 1] + 1000 * self.non_diag_inds[:, 0]  # 999000
+
+        self.anchor_parts_1 = self.anchors[:, 2:4]
+        self.anchor_parts_2 = self.anchors[:, 4:]
+
+    def forward(self, x):
+        batch_features = self.feature_extractor(x)
+        batch_features = self.conv1(batch_features)
+        # batch_anchor_features = self.cut_anchor_features(batch_features)
+        # batchx15360
+        batch_anchor_features = batch_features.reshape(-1, int(batch_features.numel()))
+        # h, w = batch_features.shape[2:4]  # 12, 20
+        indices = self.cut_xs + 20 * self.cut_ys + 12 * 20 * self.cut_zs
+        batch_anchor_features = batch_anchor_features[:, indices].\
+            view(-1, 1000, self.anchor_feat_channels, self.fmap_h, 1)
+        # batch_anchor_features[self.invalid_mask] = 0
+        batch_anchor_features = batch_anchor_features * torch.logical_not(self.invalid_mask)
+
+        # Join proposals from all images into a single proposals features batch
+        # batchx1000x704
+        batch_anchor_features = batch_anchor_features.view(-1, 1000, self.anchor_feat_channels * self.fmap_h)
+
+        # Add attention features
+        softmax = torch.nn.Softmax(dim=2)
+        # batchx1000x999
+        scores = self.attention_layer(batch_anchor_features)
+        attention = softmax(scores)
+        # bs, _, _ = scores.shape
+        bs, _, _ =scores.shape
+        attention_matrix = torch.zeros(bs, 1000 * 1000, device=x.device)
+        attention_matrix[:, self.non_diag_inds] = attention.reshape(-1, int(attention.numel()))
+        attention_matrix = attention_matrix.view(-1, 1000, 1000)
+        attention_features = torch.matmul(torch.transpose(batch_anchor_features, 1, 2),
+                                          torch.transpose(attention_matrix, 1, 2)).transpose(1, 2)
+        batch_anchor_features = torch.cat((attention_features, batch_anchor_features), dim=2)
+
+        # Predict
+        cls_logits = self.cls_layer(batch_anchor_features)
+        reg = self.reg_layer(batch_anchor_features)
+
+        anchor_expanded_1 = self.anchor_parts_1.repeat(reg.shape[0], 1, 1)
+        anchor_expanded_2 = self.anchor_parts_2.repeat(reg.shape[0], 1, 1)
+
+        # Add offsets to anchors (1000, 2+2+73)
+        reg_proposals = torch.cat([softmax(cls_logits), anchor_expanded_1, anchor_expanded_2 + reg], dim=2)
+
+        return reg_proposals
+
+def export_onnx(onnx_file_path):
+    # e.g. laneatt_r18_culane
+    backbone_name = 'resnet18'
+    checkpoint_file_path = 'experiments/laneatt_r18_culane/models/model_0015.pt'
+    anchors_freq_path = 'data/culane_anchors_freq.pt'
+
+    # Load specified checkpoint
+    model = LaneATT(backbone=backbone_name, anchors_freq_path=anchors_freq_path, topk_anchors=1000)
+    checkpoint = torch.load(checkpoint_file_path)
+    model.load_state_dict(checkpoint['model'])
+    model.eval()
+
+    # Export to ONNX
+    onnx_model = LaneATTONNX(model)
+
+    dummy_input = torch.randn(1, 3, 360, 640)
+    dynamic_batch = {'images': {0: 'batch'}, 'output': {0: 'batch'}}
+    torch.onnx.export(
+        onnx_model,
+        dummy_input,
+        onnx_file_path,
+        input_names=["images"],
+        output_names=["output"],
+        dynamic_axes=dynamic_batch
+    )
+
+    import onnx
+    model_onnx = onnx.load(onnx_file_path)
+
+    # Simplify
+    try:
+        import onnxsim
+
+        print(f"simplifying with onnxsim {onnxsim.__version__}...")
+        model_onnx, check = onnxsim.simplify(model_onnx)
+        assert check, "Simplified ONNX model could not be validated"
+    except Exception as e:
+        print(f"simplifier failure: {e}")
+
+    onnx.save(model_onnx, "laneatt.sim.onnx")
+    print(f"simplify done. onnx model save in laneatt.sim.onnx")
+
+if __name__ == '__main__':
+    export_onnx('./laneatt.onnx')
+```
+
+```shell
+cd laneatt-main
+conda activate laneatt
+python export.py
+```
+
+5. engine 生成
+
+**Engine 生成**：利用 `trtexec` 工具生成 engine
+
+```shell
+cd tensorRT_Pro-Vision/workspace
+bash lane_build.sh
+```
+
+</details>
+
+<details>
+<summary>CLRNet支持</summary>
+
+**1.** 前置条件
+
+- **tensorRT >= 8.6**
+
+**2.** 导出环境搭建
+
+```shell
+conda create -n clrnet python=3.9
+conda activate clrnet
+pip install torch==2.0.1 torchvision==0.15.2 torchaudio==2.0.2
+pip install pandas addict scikit-learn opencv-python pytorch_warmup scikit-image tqdm p_tqdm
+pip install imgaug yapf timm pathspec pthflops
+pip install numpy==1.26.4 mmcv==1.2.5 albumentations==0.4.6 ujson==1.35 Shapely==2.0.5
+pip install onnx onnx-simplifier onnxruntime
+```
+
+**3.** 项目克隆
+
+```shell
+git clone https://github.com/Turoad/CLRNet.git
+```
+
+**4.** 预训练权重下载
+
+- 下载链接（[Baidu Drive](https://pan.baidu.com/s/1rqXG6VXvzNeI-4Jl_vwKJQ?pwd=lane)）
+
+**5.** 导出 onnx 模型，在 clrnet-main 新建导出文件 `export.py` 内容如下：
+
+```python
+import math
+import torch
+import torch.nn.functional as F
+from clrnet.utils.config import Config
+from mmcv.parallel import MMDataParallel
+from clrnet.models.registry import build_net
+
+class CLRNetONNX(torch.nn.Module):
+    def __init__(self, model):
+        super(CLRNetONNX, self).__init__()
+        self.backbone = model.backbone
+        self.neck     = model.neck
+        self.head     = model.heads
+
+    def forward(self, x):
+        x = self.backbone(x)
+        x = self.neck(x)
+        batch_features = list(x[len(x) - self.head.refine_layers:])
+        # 1x64x10x25+1x64x20x50+1x64x40x100
+        batch_features.reverse()
+        batch_size = batch_features[-1].shape[0]
+
+        # 1x192x78
+        priors = self.head.priors.repeat(batch_size, 1, 1)
+        # 1x192x36
+        priors_on_featmap = self.head.priors_on_featmap.repeat(batch_size, 1, 1)
+
+        prediction_lists = []
+        prior_features_stages = []
+        for stage in range(self.head.refine_layers):
+            # 1. anchor ROI pooling
+            num_priors = int(priors_on_featmap.shape[1])
+            prior_xs = torch.flip(priors_on_featmap, dims=[2])
+            batch_prior_features = self.head.pool_prior_features(
+                batch_features[stage], num_priors, prior_xs)
+            prior_features_stages.append(batch_prior_features)
+
+            # 2. ROI gather
+            fc_features = self.head.roi_gather(prior_features_stages,
+                                               batch_features[stage], stage)
+
+            # 3. cls and reg head
+            # fc_features = fc_features.view(num_priors, batch_size, -1).reshape(batch_size * num_priors, self.head.fc_hidden_dim)
+            fc_features = fc_features.view(num_priors, -1, 64).reshape(-1, self.head.fc_hidden_dim)
+
+            cls_features = fc_features.clone()
+            reg_features = fc_features.clone()
+            for cls_layer in self.head.cls_modules:
+                cls_features = cls_layer(cls_features)
+            for reg_layer in self.head.reg_modules:
+                reg_features = reg_layer(reg_features)
+
+            cls_logits = self.head.cls_layers(cls_features)
+            reg = self.head.reg_layers(reg_features)
+
+            # cls_logits = cls_logits.reshape(batch_size, -1, cls_logits.shape[1]) # (B, num_priors, 2)
+            cls_logits = cls_logits.reshape(-1, 192, 2) # (B, num_priors, 2)
+            # add softmax
+            softmax = torch.nn.Softmax(dim=2)
+            cls_logits = softmax(cls_logits)
+            # reg = reg.reshape(batch_size, -1, reg.shape[1])
+            reg = reg.reshape(-1, 192, 76)
+
+            predictions = priors.clone()
+            predictions[:, :, :2] = cls_logits
+            predictions[:, :, 2:5] += reg[:, :, :3]
+            # add n_strips * length
+            # predictions[:, :, 5] = reg[:, :, 3] # length
+            predictions[:, :, 5] = reg[:, :, 3] * self.head.n_strips # length
+
+            def tran_tensor(t):
+                return t.unsqueeze(2).clone().repeat(1, 1, self.head.n_offsets)
+
+            batch_size = reg.shape[0]
+            predictions[..., 6:] = (
+                tran_tensor(predictions[..., 3]) * (self.head.img_w - 1) +
+                ((1 - self.head.prior_ys.repeat(batch_size, num_priors, 1) -
+                  tran_tensor(predictions[..., 2])) * self.head.img_h /
+                 torch.tan(tran_tensor(predictions[..., 4]) * math.pi + 1e-5))) / (self.head.img_w - 1)
+
+            prediction_lines = predictions.clone()
+            predictions[..., 6:] += reg[..., 4:]
+
+            prediction_lists.append(predictions)
+
+            if stage != self.head.refine_layers - 1:
+                priors = prediction_lines.detach().clone()
+                priors_on_featmap = priors[..., 6 + self.head.sample_x_indexs]
+
+        return prediction_lists[-1]
+
+def export_onnx(onnx_file_path):
+    # e.g. clrnet_culane_r18
+    cfg = Config.fromfile("configs/clrnet/clr_resnet18_culane.py")
+    checkpoint_file_path = "culane_r18.pth"
+    # load checkpoint
+    net = build_net(cfg)
+    net = MMDataParallel(net, device_ids=range(1)).cuda()
+    pretrained_model = torch.load(checkpoint_file_path)
+    net.load_state_dict(pretrained_model['net'], strict=False)
+    net.eval()
+    model = net.to("cpu")
+
+    onnx_model = CLRNetONNX(model.module)
+    # Export to ONNX
+    dummy_input = torch.randn(1, 3 ,320, 800)
+    dynamic_batch = {'images': {0: 'batch'}, 'output': {0: 'batch'}}
+    torch.onnx.export(
+        onnx_model,
+        dummy_input,
+        onnx_file_path,
+        input_names=["images"],
+        output_names=["output"],
+        opset_version=17,
+        dynamic_axes=dynamic_batch
+    )
+    print(f"finished export onnx model")
+
+    import onnx
+    model_onnx = onnx.load(onnx_file_path)
+    onnx.checker.check_model(model_onnx)    # check onnx model
+
+    # Simplify
+    try:
+        import onnxsim
+
+        print(f"simplifying with onnxsim {onnxsim.__version__}...")
+        model_onnx, check = onnxsim.simplify(model_onnx)
+        assert check, "Simplified ONNX model could not be validated"
+    except Exception as e:
+        print(f"simplifier failure: {e}")
+
+    onnx.save(model_onnx, "clrnet.sim.onnx")
+    print(f"simplify done. onnx model save in clrnet.sim.onnx")
+
+if __name__ == "__main__":
+    export_onnx("./clrnet.onnx")
+```
+
+```shell
+cd clrnet-main
+conda activate clrnet
+python export.py
+```
+
+**5.** engine 生成
+
+**Engine 生成**：利用 `trtexec` 工具生成 engine
+
+```shell
+cd tensorRT_Pro-Vision/workspace
+bash lane_build.sh
+```
+
+</details>
+
+<details>
+<summary>CLRerNet支持</summary>
+
+**1.** 前置条件
+
+- **tensorRT >= 8.6**
+
+**2.** 导出环境搭建
+
+```shell
+conda create -n clrernet python=3.8
+conda activate clrernet
+pip install torch==2.0.1 torchvision==0.15.2 torchaudio==2.0.2
+pip install -U openmim==0.3.3
+mim install mmcv-full==1.7.0
+pip install albumentations==0.4.6 p_tqdm==1.3.3 yapf==0.40.1 mmdet==2.28.0
+pip install pytest pytest-cov tensorboard
+pip install onnx onnx-simplifier onnxruntime
+```
+
+**3.** 项目克隆
+
+```shell
+git clone https://github.com/hirotomusiker/CLRerNet.git
+```
+
+**4.** 预训练权重下载
+
+- 下载链接（[Baidu Drive](https://pan.baidu.com/s/1_rszDtajwTpvH1O_OPFR9A?pwd=lane)）
+
+**5.** 导出 onnx 模型，在 clrernet-main 新建导出文件 `export.py` 内容如下：
+
+```python
+import torch
+from mmcv import Config
+from mmdet.models import build_detector
+from mmcv.runner import load_checkpoint
+
+class CLRerNetONNX(torch.nn.Module):
+    def __init__(self, model):
+        super(CLRerNetONNX, self).__init__()
+        self.model = model
+        self.bakcbone = model.backbone
+        self.neck     = model.neck
+        self.head     = model.bbox_head
+
+    def forward(self, x):
+        x = self.bakcbone(x)
+        x = self.neck(x)
+
+        batch = x[0].shape[0]
+        feature_pyramid = list(x[len(x) - self.head.refine_layers:])
+        # 1x64x10x25+1x64x20x50+1x64x40x100
+        feature_pyramid.reverse()
+
+        _, sampled_xs = self.head.anchor_generator.generate_anchors(
+            self.head.anchor_generator.prior_embeddings.weight,
+            self.head.prior_ys,
+            self.head.sample_x_indices,
+            self.head.img_w,
+            self.head.img_h
+        )
+
+        anchor_params = self.head.anchor_generator.prior_embeddings.weight.clone().repeat(batch, 1, 1)
+        priors_on_featmap = sampled_xs.repeat(batch, 1, 1)
+
+        predictions_list = []
+        pooled_features_stages = []
+        for stage in range(self.head.refine_layers):
+            # 1. anchor ROI pooling
+            prior_xs = priors_on_featmap
+            pooled_features = self.head.pool_prior_features(feature_pyramid[stage], prior_xs)
+            pooled_features_stages.append(pooled_features)
+
+            # 2. ROI gather
+            fc_features = self.head.attention(pooled_features_stages, feature_pyramid, stage)
+            # fc_features = fc_features.view(self.head.num_priors, batch, -1).reshape(batch * self.head.num_priors, self.head.fc_hidden_dim)
+            fc_features = fc_features.view(self.head.num_priors, -1, 64).reshape(-1, self.head.fc_hidden_dim)
+
+            # 3. cls and reg head
+            cls_features = fc_features.clone()
+            reg_features = fc_features.clone()
+            for cls_layer in self.head.cls_modules:
+                cls_features = cls_layer(cls_features)
+            for reg_layer in self.head.reg_modules:
+                reg_features = reg_layer(reg_features)
+
+            cls_logits = self.head.cls_layers(cls_features)
+            # cls_logits = cls_logits.reshape(batch, -1, cls_logits.shape[1])
+            cls_logits = cls_logits.reshape(-1, 192, 2)
+
+            reg = self.head.reg_layers(reg_features)
+            # reg = reg.reshape(batch, -1, reg.shape[1])
+            reg = reg.reshape(-1, 192, 76)
+
+            # 4. reg processing
+            anchor_params += reg[:, :, :3]
+            updated_anchor_xs, _ = self.head.anchor_generator.generate_anchors(
+                anchor_params.view(-1, 3),
+                self.head.prior_ys,
+                self.head.sample_x_indices,
+                self.head.img_w,
+                self.head.img_h
+            )
+            # updated_anchor_xs = updated_anchor_xs.view(batch, self.head.num_priors, -1)
+            updated_anchor_xs = updated_anchor_xs.view(-1, 192, 72)
+            reg_xs = updated_anchor_xs + reg[..., 4:]
+
+            # start_y, start_x, theta
+            # some problem.
+            # anchor_params[:, :, 0] = 1.0 - anchor_params[:, :, 0]
+            # anchor_params_ = anchor_params.clone()
+            # anchor_params_[:, :, 0] = 1.0 - anchor_params_[:, :, 0]
+            # print(f"anchor_params.shape = {anchor_params_.shape}")
+
+            softmax = torch.nn.Softmax(dim=2)
+            cls_logits = softmax(cls_logits)
+            reg[:, :, 3:4] = reg[:, :, 3:4] * self.head.n_strips
+            predictions = torch.concat([cls_logits, anchor_params, reg[:, :, 3:4], reg_xs], dim=2)
+            # predictions = torch.concat([cls_logits, anchor_params_, reg[:, :, 3:4], reg_xs], dim=2)
+
+            predictions_list.append(predictions)
+
+            if stage != self.head.refine_layers - 1:
+                anchor_params = anchor_params.detach().clone()
+                priors_on_featmap = updated_anchor_xs.detach().clone()[
+                    ..., self.head.sample_x_indices
+                ]
+
+        return predictions_list[-1]
+
+
+if __name__ == "__main__":
+
+    cfg = Config.fromfile("configs/clrernet/culane/clrernet_culane_dla34.py")
+    model = build_detector(cfg.model, test_cfg=cfg.get("test_cfg"))
+    load_checkpoint(model, "clrernet_culane_dla34.pth", map_location="cpu")
+
+    model.eval()
+    model = model.to("cpu")
+
+    # Export to ONNX
+    onnx_model = CLRerNetONNX(model)
+
+    dummy_input = torch.randn(1, 3, 320, 800)
+
+    dynamic_batch = {'images': {0: 'batch'}, 'output': {0: 'batch'}}
+    torch.onnx.export(
+        onnx_model,
+        dummy_input,
+        "model.onnx",
+        input_names=["images"],
+        output_names=["output"],
+        opset_version=17,
+        dynamic_axes=dynamic_batch
+    )
+    print(f"finished export onnx model")
+
+    import onnx
+    model_onnx = onnx.load("model.onnx")
+    onnx.checker.check_model(model_onnx)    # check onnx model
+
+    # Simplify
+    try:
+        import onnxsim
+
+        print(f"simplifying with onnxsim {onnxsim.__version__}...")
+        model_onnx, check = onnxsim.simplify(model_onnx)
+        assert check, "Simplified ONNX model could not be validated"
+    except Exception as e:
+        print(f"simplifier failure: {e}")
+
+    onnx.save(model_onnx, "clrernet.sim.onnx")
+    print(f"simplify done. onnx model save in clrernet.sim.onnx")
+```
+
+```shell
+cd clrernet-main
+conda activate clrernet
+python export.py
+```
+
+**5.** engine 生成
+
+**Engine 生成**：利用 `trtexec` 工具生成 engine
+
+```shell
+cd tensorRT_Pro-Vision/workspace
+bash lane_build.sh
+```
+
+</details>
+
+</details>
+
+<a id="docs-pose-track" name="docs-pose-track"></a>
+
+<details>
+<summary><b>姿态估计与跟踪</b> · RTMO / ByteTrack</summary>
+
+<details>
+
+<summary>RTMO支持</summary>
+
+1. 前置条件
+
+- **tensorRT >= 8.6**
+
+2. RTMO 导出环境搭建
+
+```shell
+conda create -n mmpose python=3.9
+conda activate mmpose
+pip install torch==2.0.1 torchvision==0.15.2 torchaudio==2.0.2 --index-url https://download.pytorch.org/whl/cu118
+pip install -U openmim
+mim install mmengine
+mim install "mmcv>=2.0.0rc2"
+mim install "mmpose>=1.1.0"
+pip install mmdeploy==1.3.1
+pip install mmdeploy-runtime==1.3.1
+```
+
+3. 项目克隆
+
+```shell
+git clone https://github.com/open-mmlab/mmpose.git
+```
+
+4. 预训练权重下载
+
+- 参考：[https://github.com/open-mmlab/mmpose/tree/main/projects/rtmo-model-zoo](https://github.com/open-mmlab/mmpose/tree/main/projects/rtmo#%EF%B8%8F-model-zoo)
+
+5. 导出 onnx 模型，在 mmpose-main 新建导出文件 `export.py` 内容如下：
+
+```python
+import torch
+from mmpose.apis import init_model
+from mmpose.structures.bbox import bbox_xyxy2cs
+
+class MyModel(torch.nn.Module):
+    def __init__(self) -> None:
+        super().__init__()
+        self.model = init_model(config_file, checkpoint_file, device=device)
+        test_cfg = {'input_size': (640, 640)}
+        self.model.neck.switch_to_deploy(test_cfg)
+        self.model.head.switch_to_deploy(test_cfg)
+        self.model.head.dcc.switch_to_deploy(test_cfg)
+
+    def forward(self, x):
+        x = self.model.backbone(x)
+        x = self.model.neck(x)
+        cls_scores, bbox_preds, _, kpt_vis, pose_vecs = self.model.head(x)[:5]
+        scores = self.model.head._flatten_predictions(cls_scores).sigmoid()
+        flatten_bbox_preds = self.model.head._flatten_predictions(bbox_preds)
+        flatten_pose_vecs  = self.model.head._flatten_predictions(pose_vecs)
+        flatten_kpt_vis    = self.model.head._flatten_predictions(kpt_vis).sigmoid()
+        bboxes = self.model.head.decode_bbox(flatten_bbox_preds, self.model.head.flatten_priors,
+                                             self.model.head.flatten_stride)
+        dets      = torch.cat([bboxes, scores], dim=2)
+        grids     = self.model.head.flatten_priors
+        bbox_cs   = torch.cat(bbox_xyxy2cs(dets[..., :4], self.model.head.bbox_padding), dim=-1)
+        keypoints = self.model.head.dcc.forward_test(flatten_pose_vecs, bbox_cs, grids)
+        pred_kpts = torch.cat([keypoints, flatten_kpt_vis.unsqueeze(-1)], dim=-1)
+        bs, bboxes, ny, nx = map(int, pred_kpts.shape)
+        bs = -1
+        pred_kpts = pred_kpts.view(bs, bboxes, ny*nx)
+        return torch.cat([dets, pred_kpts], dim=2)
+
+if __name__ == "__main__":
+
+    device = "cpu"
+    config_file     = "configs/body_2d_keypoint/rtmo/body7/rtmo-s_8xb32-600e_body7-640x640.py"
+    checkpoint_file = "rtmo-s_8xb32-600e_body7-640x640-dac2bf74_20231211.pth"
+
+    model = MyModel()
+    model.eval()
+
+    x = torch.zeros(1, 3, 640, 640, device=device)
+    dynamic_batch = {'images': {0: 'batch'}, 'output': {0: 'batch'}}
+    torch.onnx.export(
+        model,
+        (x,),
+        "rtmo-s_8xb32-600e_body7-640x640.onnx",
+        input_names=["images"],
+        output_names=["output"],
+        opset_version=17,
+        dynamic_axes=dynamic_batch
+    )
+
+    # Checks
+    import onnx
+    model_onnx = onnx.load("rtmo-s_8xb32-600e_body7-640x640.onnx")
+    # onnx.checker.check_model(model_onnx)    # check onnx model
+
+    # Simplify
+    try:
+        import onnxsim
+
+        print(f"simplifying with onnxsim {onnxsim.__version__}...")
+        model_onnx, check = onnxsim.simplify(model_onnx)
+        assert check, "Simplified ONNX model could not be validated"
+    except Exception as e:
+        print(f"simplifier failure: {e}")
+
+    onnx.save(model_onnx, "rtmo-s_8xb32-600e_body7-640x640.onnx")
+    print(f"simplify done.")
+```
+
+```shell
+cd mmpose-main
+conda activate mmpose
+python export.py
+```
+
+6. engien 生成
+
+**Engine 生成**：利用 `trtexec` 工具生成 engine
+
+```shell
+cp mmpose/rtmo-s_8xb32-600e_body7-640x640.onnx tensorRT_Pro-Vision/workspace
+cd tensorRT_Pro-Vision/workspace
+# 取消 build.sh 中 rtmo engine 生成的注释
+bash build.sh
+```
+
+7. 执行
+
+```shell
+make rtmo -j64
+```
+
+</details>
+
+<details>
+<summary>ByteTrack支持</summary>
+
+1. 说明
+
+代码 copy 自：[https://github.com/CYYAI/AiInfer/tree/main/utils/tracker/ByteTracker](https://github.com/CYYAI/AiInfer/tree/main/utils/tracker/ByteTracker)
+
+以 YOLOv8 作为检测器实现基本跟踪功能（其它检测器也行）
+
+2. demo 演示
+
+```shell
+cd tensorRT_Pro-Vision
+make bytetrack -j64
+```
+
+</details>
+
+</details>
+
+<a id="docs-plugins" name="docs-plugins"></a>
+
+<details>
+<summary><b>自定义插件</b> · LayerNorm</summary>
+
+<details>
+
+<summary>LayerNorm Plugin支持</summary>
+
+1. 说明
+
+* 当需要在低版本的 tensorRT 中解析 LayerNorm 算子时可以通过该插件支持
+* LayerNorm 插件实现代码 copy 自 [CUDA-BEVFusion/src/plugins/custom_layernorm.cu](https://github.com/NVIDIA-AI-IOT/Lidar_AI_Solution/blob/master/CUDA-BEVFusion/src/plugins/custom_layernorm.cu)，代码进行了略微修改
+* LayerNorm 插件的封装在推理时存在一些问题，因此并未使用
+
+2. libcustom_layernorm.so 生成
+
+```shell
+cd tensorRT_Pro-Vision
+mkdir build && cd build
+cmake .. && make -j64
+cp libcustom_layernorm.so ../workspace
+```
+
+3. ONNX 模型修改（RTMO 为例说明，其它模型类似）
+
+利用 onnx_graphsurgeon 修改原始 LayerNorm 的 op_type，代码如下：
+
+```python
+import onnx
+import onnx_graphsurgeon as gs
+
+# 加载 ONNX 模型
+input_model_path = "rtmo-s_8xb32-600e_body7-640x640.onnx"
+output_model_path = "rtmo-s_8xb32-600e_body7-640x640.plugin.onnx"
+graph = gs.import_onnx(onnx.load(input_model_path))
+
+# 遍历图中的所有节点
+for node in graph.nodes:
+    if node.op == "LayerNormalization":
+        node.op = "CustomLayerNormalization"
+        # 添加自定义属性
+        node.attrs["name"] = "LayerNormPlugin"
+        node.attrs["info"] = "This is custom LayerNormalization node"
+
+# 删除无用的节点和张量
+graph.cleanup()
+
+# 导出修改后的模型
+onnx.save(gs.export_onnx(graph), output_model_path)
+```
+
+4. engine 生成
+
+利用 **trtexec** 工具加载插件解析 ONNX，新建 build.sh 脚本文件并执行，内容如下：
+
+```shell
+#! /usr/bin/bash
+
+TRTEXEC=/home/jarvis/lean/TensorRT-8.5.1.7/bin/trtexec
+
+# export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:/home/jarvis/lean/TensorRT-8.5.1.7/lib
+
+${TRTEXEC} \
+  --onnx=rtmo-s_8xb32-600e_body7-640x640.plugin.onnx \
+  --plugins=libcustom_layernorm.so \
+  --minShapes=images:1x3x640x640 \
+  --optShapes=images:1x3x640x640 \
+  --maxShapes=images:4x3x640x640 \
+  --memPoolSize=workspace:2048 \
+  --saveEngine=rtmo-s_8xb32-600e_body7-640x640.plugin.FP32.trtmodel \
+  > trtexec_output.log 2>&1
+```
+
+</details>
 
 </details>
 
