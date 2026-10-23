@@ -3166,6 +3166,82 @@ make yolo_sem -j64
 
 </details>
 
+<details>
+
+<summary>YOLO26-Depth支持</summary>
+
+1. 前置条件
+
+- **tensorRT >= 8.6**
+
+2. 下载 YOLO26
+
+```shell
+git clone https://github.com/ultralytics/ultralytics.git
+```
+
+3. 确认导出动态 batch
+
+```python
+# ========== exporter.py ==========
+
+# ultralytics/engine/exporter.py 第 1152 行
+# output_names = ["output0", "output1"] if self.model.task == "segment" else ["output1"]
+# dynamic = self.args.dynamic
+# if dynamic:
+#     dynamic = {"images": {0: "batch", 2: "height", 3: "width"}}  # shape(1,3,640,640)
+#     ...
+#     elif isinstance(self.model, DepthModel):
+#         dynamic["output0"] = {0: "batch", 2: "height", 3: "width"}  # shape(1,1,640,640) dense map, not anchors        
+# 修改为：
+
+output_names = ["output0", "output1"] if self.model.task == "segment" else ["output"]
+dynamic = self.args.dynamic
+if dynamic:
+    dynamic = {"images": {0: "batch"}}  # shape(1,3,640,640)
+    ...
+    elif isinstance(self.model, DepthModel):
+        dynamic["output0"] = {0: "batch"}  # shape(1,1,640,640) dense map, not anchors
+```
+
+4. 导出 onnx 模型，在 ultralytics 新建导出文件 `export.py` 内容如下
+
+```python
+from ultralytics import YOLO
+
+# Load a model
+model = YOLO("yolo26s-depth.pt")  # load an official model
+
+# Export the model
+model.export(format="onnx", imgsz=(768, 768), dynamic=True, simplify=True)
+```
+
+```shell
+cd ultralytics
+python export.py
+```
+
+5. 复制模型并执行
+
+```shell
+cp ultralytics/yolo26s-depth.onnx tensorRT_Pro-Vision/workspace
+cd tensorRT_Pro-Vision/workspace
+make yolo_depth -j64
+```
+
+首次运行会自动由 `TRT::compile` 生成 `yolo26s-depth.FP16.trtmodel`（768 输入、456 层，首次编译约需数分钟，之后直接复用），无需 `trtexec` 脚本。结果保存在 `yolo26s-depth_FP16_result/`：
+
+- `*_depth.jpg`：Spectral_r 视差着色图（近处暖色、远处冷色）
+- `*_metric.jpg`：固定 0~20m 量程的 inferno 米制深度图
+- `*_overlay.jpg`：jet 深度热力图与原图叠加
+- `*_depth.tiff`：float32 米制深度原始数据，便于数值验证
+
+如需单图或视频演示，取消 `src/application/app_yolo_depth.cpp` 中 `test_single_image()` / `test_video()` 的注释即可：单图输出 `Result-YoloDepth.jpg`（原图 | 深度 | 叠加）和 `Result-YoloDepth.tiff`，视频输出 `result_yolo_depth.mp4`。
+
+注意：YOLO26-Depth 的预处理是直接拉伸到 768x768（`scale_fill=True`），**不是 letterbox**，也没有 114 灰边填充；归一化仅为 `/255`。ONNX 输出已经是米制深度，C++ 端只需做 `align_corners=True` 的 bilinear 缩放到原图分辨率。
+
+</details>
+
 ## 接口介绍
 
 <details>
