@@ -19,6 +19,7 @@ int app_clrnet();
 int app_clrernet();
 int app_depth_anything();
 int app_yolo_sem();
+int app_yolo_depth();
 int test_yolo_map();
 
 int main(int argc, char** argv){
@@ -58,18 +59,21 @@ int main(int argc, char** argv){
         app_depth_anything();
     }else if(strcmp(method, "yolo_sem") == 0){
         app_yolo_sem();
+    }else if(strcmp(method, "yolo_depth") == 0){
+        app_yolo_depth();
     }else if(strcmp(method, "test_yolo_map") == 0){
         test_yolo_map();
     }else{
         printf("Unknow method: %s\n", method);
         printf(
             "Help: \n"
-            "    ./pro method[yolo、yolo_cls、yolo_seg、yolo_sem、yolo_pose、rtdetr、rfdetr、test_yolo_map]\n"
+            "    ./pro method[yolo、yolo_cls、yolo_seg、yolo_sem、yolo_depth、yolo_pose、rtdetr、rfdetr、test_yolo_map]\n"
             "\n"
             "    ./pro yolo\n"
             "    ./pro yolo_cls\n"
             "    ./pro yolo_seg\n"
             "    ./pro yolo_sem\n"
+            "    ./pro yolo_depth\n"
         );
     } 
     return 0;

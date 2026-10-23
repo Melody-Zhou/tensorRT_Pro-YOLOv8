@@ -14,7 +14,7 @@ lean_opencv    := /home/zhouwenguang/lean/opencv-4.6.0
 
 # 如果是其他显卡，请修改-gencode=arch=compute_75,code=sm_75为对应显卡的能力
 # 显卡对应的号码参考这里：https://developer.nvidia.com/zh-cn/cuda-gpus#compute
-cuda_arch := # -gencode=arch=compute_75,code=sm_75
+cuda_arch := -gencode=arch=compute_80,code=sm_80
 
 cpp_srcs  := $(shell find src -name "*.cpp")
 cpp_objs  := $(cpp_srcs:.cpp=.cpp.o)
@@ -69,6 +69,8 @@ link_flags        := -pthread -fopenmp -Wl,-rpath='$$ORIGIN'
 cpp_compile_flags += $(include_paths)
 cu_compile_flags  += $(include_paths)
 link_flags        += $(library_paths) $(link_librarys) $(run_paths)
+
+.DEFAULT_GOAL := pro
 
 ifneq ($(MAKECMDGOALS), clean)
 -include $(cpp_mk) $(cu_mk)
@@ -150,6 +152,9 @@ clrernet : workspace/pro
 depth_anything : workspace/pro
 	@cd workspace && ./pro depth_anything
 
+yolo_depth : workspace/pro
+	@cd workspace && ./pro yolo_depth
+
 test_yolo_map : workspace/pro
 	@cd workspace && ./pro test_yolo_map
 
@@ -163,4 +168,4 @@ clean :
 
 # 导出符号，使得运行时能够链接上
 # export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:/home/jarvis/lean/TensorRT-8.6.1.6/lib
-export LD_LIBRARY_PATH:=$(export_path):$(LD_LIBRARY_PATH)
+export LD_LIBRARY_PATH:=$(export_path)$(if $(LD_LIBRARY_PATH),:$(LD_LIBRARY_PATH))
