@@ -1,32 +1,130 @@
 
 <div align="center">
-  <img src="./assets/banner.jpg" alt="tensorRT_Pro-Vision Tasks">
+
+<h1>tensorRT_Pro-Vision</h1>
+
+<p><strong>高性能 · 多任务 · 端到端 GPU 的 TensorRT C++ 视觉推理框架</strong></p>
+
+<p>
+  <a href="#quick-start">快速开始</a> ·
+  <a href="#supported-tasks">支持任务</a> ·
+  <a href="#panorama">任务全景</a> ·
+  <a href="#architecture">架构设计</a> ·
+  <a href="#environment">环境配置</a> ·
+  <a href="#tasks">任务文档</a> ·
+  <a href="#api">接口</a>
+</p>
+
+<p>
+  <img alt="TensorRT" src="https://img.shields.io/badge/TensorRT-8.x%20%7C%2010.x-76B900?style=flat-square&logo=nvidia&logoColor=white">
+  <img alt="CUDA" src="https://img.shields.io/badge/CUDA-11.x%20%7C%2012.x-76B900?style=flat-square&logo=nvidia&logoColor=white">
+  <img alt="C++" src="https://img.shields.io/badge/C%2B%2B-11-00599C?style=flat-square&logo=cplusplus&logoColor=white">
+  <img alt="OpenCV" src="https://img.shields.io/badge/OpenCV-4.x-5C3EE8?style=flat-square&logo=opencv&logoColor=white">
+  <img alt="Linux" src="https://img.shields.io/badge/Platform-Linux-FCC624?style=flat-square&logo=linux&logoColor=black">
+  <img alt="License" src="https://img.shields.io/badge/License-MIT-yellow?style=flat-square">
+</p>
+
+<p>
+  <img alt="Tasks" src="https://img.shields.io/badge/Tasks-20%2B-1f6feb?style=flat-square">
+  <a href="https://github.com/Melody-Zhou/tensorRT_Pro-Vision/stargazers"><img alt="Stars" src="https://img.shields.io/github/stars/Melody-Zhou/tensorRT_Pro-Vision?style=flat-square"></a>
+  <a href="https://github.com/Melody-Zhou/tensorRT_Pro-Vision/network/members"><img alt="Forks" src="https://img.shields.io/github/forks/Melody-Zhou/tensorRT_Pro-Vision?style=flat-square"></a>
+  <a href="https://github.com/Melody-Zhou/tensorRT_Pro-Vision/releases"><img alt="Release" src="https://img.shields.io/github/v/tag/Melody-Zhou/tensorRT_Pro-Vision?style=flat-square"></a>
+</p>
+
 </div>
 
-## 简介
+> 一套 TensorRT C++ 代码，覆盖 **检测、分类、实例分割、语义分割、姿态、OBB、深度、OCR、车道线与多目标跟踪**；预处理、后处理、NMS 全部 GPU 加速。
 
-**tensorRT_Pro-Vision** 是一个基于 TensorRT C++ API 的高性能计算机视觉推理框架，支持 20+ 主流视觉模型的一键部署。该仓库从 [shouxieai/tensorRT_Pro](https://github.com/shouxieai/tensorRT_Pro) fork 而来，经过大幅重构和扩展。
+从 [shouxieai/tensorRT_Pro](https://github.com/shouxieai/tensorRT_Pro) fork 并重构而来，面向多任务、低延迟的 C++ 部署场景。
 
-目前已支持 **检测、分类、实例分割、语义分割、姿态估计、旋转框检测 (OBB)、深度估计、文字识别 (OCR)、车道线检测、多目标跟踪** 等多项视觉任务的端到端 GPU 推理。🚀🚀🚀
+<a id="quick-start" name="quick-start"></a>
 
-**核心特性：**
-- 基于 TensorRT C++ API，支持 **TensorRT 8.x / 10.x** 版本自适应编译（通过 `NV_TENSORRT_MAJOR` 宏自动适配 API 差异）
-- 使用 TensorRT 官方 ONNX 解析器 (`libnvonnxparser.so`)，无需 protobuf 依赖
-- 预处理、后处理、NMS 全部 GPU 加速（CUDA Kernel 实现）
-- 支持 FP32 / FP16 / INT8 三种推理精度，内置 Entropy 和 MinMax 校准器
-- 支持动态 Batch，最大 batch size 可在编译时配置
-- 代码结构清晰，各模型任务独立模块化，易于扩展
+## Quick Start
+
+```shell
+git clone https://github.com/Melody-Zhou/tensorRT_Pro-Vision.git
+cd tensorRT_Pro-Vision
+# 修改 Makefile 中的 TensorRT / CUDA / cuDNN / OpenCV 路径
+make -j$(nproc)
+# 按任务文档导出 ONNX 并放入 workspace/，然后：
+cd workspace && ./pro <task_name>
+```
+
+部分任务会在首次运行时自动从 ONNX 构建 TensorRT engine，其余任务通过 `workspace/*_build.sh` 生成；完整的依赖版本、Makefile/CMake 配置与各任务模型导出步骤见 [环境配置](#environment) 和 [任务文档](#tasks)。
+
+## Why this repo
+
+- **20+ 模型，一个可执行文件**：`workspace/pro` 通过任务名切换模型，无需为每个任务维护独立工程。
+- **全链路 GPU**：resize、normalize、decode、NMS、depth resize 均为 CUDA kernel，避免 CPU↔GPU 往返。
+- **TensorRT 8.x / 10.x 自适应**：通过 `NV_TENSORRT_MAJOR` 条件编译兼容两代 API，不依赖 protobuf。
+- **动态 Batch + 三种精度**：FP32 / FP16 / INT8，内置 Entropy 与 MinMax 校准器。
+- **模块化扩展**：新增任务只需实现 `preprocess()`、`worker()` 和后处理 kernel。
+
+<a id="supported-tasks" name="supported-tasks"></a>
+
+## 支持任务
+
+| 类别 | 已支持模型 |
+| :--- | :--- |
+| 检测 | YOLOv3 · YOLOv5 · YOLOv6 · YOLOv7 · YOLOv8 · YOLOv9 · YOLOv10 · YOLO11 · YOLOv12 · YOLOv13 · YOLO26 · RT-DETR · RF-DETR |
+| 分类 | YOLOv8-Cls · YOLO11-Cls · YOLO26-Cls |
+| 分割 | YOLOv8-Seg · YOLO11-Seg · YOLO26-Seg · YOLO26-Sem |
+| 姿态 | YOLOv8-Pose · YOLO11-Pose · YOLO26-Pose · RTMO |
+| 旋转框 | YOLOv8-OBB · YOLO11-OBB · YOLO26-OBB |
+| 深度 | Depth-Anything V1/V2 · **YOLO26-Depth** |
+| OCR | PP-OCRv4（det / cls / rec） |
+| 车道线 | LaneATT · CLRNet · CLRerNet |
+| 跟踪 | ByteTrack |
+| 自定义插件 | LayerNorm · DCNv2 · HSigmoid · HSwish · ScatterND |
+
+<a id="panorama" name="panorama"></a>
+
+## 任务全景
+
+<div align="center">
+  <img src="./assets/banner.jpg" width="80%" alt="tensorRT_Pro-Vision 任务全景">
+  <br>
+  <sub>检测 · 分类 · 分割 · 姿态 · OBB · 深度 · OCR · 车道线 · 跟踪</sub>
+</div>
+
+<a id="architecture" name="architecture"></a>
+
+## 架构设计
+
+所有任务共享同一套异步推理骨架，模型差异只体现在预处理与后处理：
+
+```text
+src/main.cpp                  CLI 任务分发
+src/application/app_*.cpp     每个任务的入口：编译/加载 engine、测试、可视化
+src/application/app_<task>/   模型专属实现
+    <task>.hpp                Infer 接口：commit / commits
+    <task>.cpp                继承 InferController：preprocess + worker
+    <task>_decode.cu          后处理 CUDA kernel
+src/tensorRT/
+    builder/                  TRT::compile：FP32 / FP16 / INT8
+    infer/                    TRT::load_infer：engine 加载与推理
+    common/                   Tensor、InferController、预处理 kernel、内存池
+```
+
+**新增一个任务只需要三步：**
+
+1. 在 `<task>.hpp` 中定义 `Infer` 接口；
+2. 在 `<task>.cpp` 中实现 `preprocess()` 与 `worker()`；
+3. 在 `<task>.cu` 中添加后处理 kernel，并在 `src/main.cpp` 注册任务。
 
 ## ✨ What's New
 
-- **2026/6/26 重构**
-  - **TensorRT 10.x 全面支持**：通过 `NV_TENSORRT_MAJOR` 宏实现 TRT 8.x / 10.x 双版本自适应编译，API 差异由 `#if NV_TENSORRT_MAJOR >= 10` 条件编译自动处理
-  - **移除 vendored ONNX 解析器**：不再维护自定义的 onnx-tensorrt 解析器（~15,000 行代码），统一使用 TensorRT 官方 `libnvonnxparser.so`，大幅简化代码库
-  - **移除 protobuf 依赖**：不再需要单独安装 protobuf 3.11.4，构建更加简单
-  - **修复 `getMaxBatchSize()` 警告**：显式 batch 模式下使用 `getProfileDimensions` / `getProfileShape` 正确获取最大 batch size
-  - **仓库重命名**：`tensorRT_Pro-YOLOv8` → **`tensorRT_Pro-Vision`**，体现多任务视觉推理的定位
-  - **全新 Banner**：9 宫格任务全景图，直观展示所有支持的视觉任务
-> 📜 **完整历史更新记录**（2023-2026）请查看 [v1.0.0 README](https://github.com/Melody-Zhou/tensorRT_Pro-YOLOv8/blob/v1.0.0/README.md)，其中包含 CSDN 文章同步讲解链接。
+- **2026/10**：新增 **YOLO26-Depth** 单目米制深度估计，支持动态 batch、`align_corners` 后处理与 Spectral/metric 可视化。
+- **2026/6/26**：TensorRT 10.x 全面支持；移除 vendored ONNX parser 与 protobuf 依赖；修复 `getMaxBatchSize()` 警告；仓库更名为 **tensorRT_Pro-Vision**。
+
+<details>
+<summary>完整更新记录</summary>
+
+完整历史更新记录（2023–2026）请查看 [v1.0.0 README](https://github.com/Melody-Zhou/tensorRT_Pro-Vision/blob/v1.0.0/README.md)。
+
+</details>
+
+<a id="environment" name="environment"></a>
 
 ## 环境配置
 
@@ -48,7 +146,7 @@ git clone https://github.com/Melody-Zhou/tensorRT_Pro-Vision.git
 <details>
 <summary>Makefile 编译</summary>
 
-1. 修改 Makefile 中的库文件路径：
+1. 修改 Makefile 中的库文件路径与 `cuda_arch`：
 
 ```makefile
 # ===== TensorRT 8.x =====
@@ -62,6 +160,9 @@ lean_opencv    := /home/zhouwenguang/lean/opencv-4.6.0
 # lean_cudnn     := /home/zhouwenguang/lean/cudnn-9.18.0
 # lean_cuda      := /usr/local/cuda-12.8
 # lean_opencv    := /home/zhouwenguang/lean/opencv-4.6.0
+
+# 根据显卡修改，例如 A30：compute_80 / sm_80
+cuda_arch := -gencode=arch=compute_80,code=sm_80
 ```
 2. 编译：
 
@@ -84,6 +185,8 @@ cmake .. && make -j$(nproc)
 ```
 
 </details>
+
+<a id="tasks" name="tasks"></a>
 
 ## 各项任务支持
 
@@ -3201,7 +3304,7 @@ if dynamic:
     dynamic = {"images": {0: "batch"}}  # shape(1,3,640,640)
     ...
     elif isinstance(self.model, DepthModel):
-        dynamic["output0"] = {0: "batch"}  # shape(1,1,640,640) dense map, not anchors
+        dynamic["output"] = {0: "batch"}  # shape(1,1,640,640) dense map, not anchors
 ```
 
 4. 导出 onnx 模型，在 ultralytics 新建导出文件 `export.py` 内容如下
@@ -3241,6 +3344,8 @@ make yolo_depth -j64
 注意：YOLO26-Depth 的预处理是直接拉伸到 768x768（`scale_fill=True`），**不是 letterbox**，也没有 114 灰边填充；归一化仅为 `/255`。ONNX 输出已经是米制深度，C++ 端只需做 `align_corners=True` 的 bilinear 缩放到原图分辨率。
 
 </details>
+
+<a id="api" name="api"></a>
 
 ## 接口介绍
 
@@ -3292,3 +3397,7 @@ auto boxes = engine->commit(image).get()  // 得到的是 vector<Box>
 - [https://github.com/shouxieai/tensorRT_Pro](https://github.com/shouxieai/tensorRT_Pro)
 - [https://github.com/shouxieai/infer](https://github.com/shouxieai/infer)
 - [https://github.com/ultralytics/ultralytics](https://github.com/ultralytics/ultralytics)
+
+## License
+
+[MIT License](LICENSE) © 2023 WenGuang Zhou
